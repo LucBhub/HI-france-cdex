@@ -50,12 +50,23 @@ function parseInteger(value) {
   return Number.isInteger(parsed) ? parsed : null;
 }
 
+function parseNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(String(value).trim().replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function parseBoolean(value) {
   if (typeof value === "boolean") return value;
   if (value === null || value === undefined || value === "") return true;
   const normalized = String(value).trim().toLowerCase();
   if (["false", "0", "no", "non"].includes(normalized)) return false;
   return true;
+}
+
+function nullableString(value) {
+  const cleaned = cleanString(value);
+  return cleaned || null;
 }
 
 function splitCsvLine(line, delimiter) {
@@ -202,7 +213,42 @@ function normalizeCreateTagRow(row = {}) {
       cleanString(field(row, ["Adresse_Ip", "Adresse_ip", "Adresse_IP"])) || null,
     client: cleanString(field(row, ["Client", "client"])) || null,
     hyperviseur: parseBoolean(field(row, ["Hyperviseur", "hyperviseur"])),
+    latitude: parseNumber(field(row, ["Lattitude", "Latitude", "latitude"])),
+    longitude: parseNumber(field(row, ["Longitude", "longitude"])),
+    address: nullableString(field(row, ["Adresse", "Address", "address"])),
+    ce: nullableString(field(row, ["CE", "ce"])),
+    puissance: nullableString(field(row, ["Puissance", "puissance"])),
+    idCentrale: nullableString(
+      field(row, ["id_Centrale", "Id_Centrale", "idCentrale"]),
+    ),
     raw: row,
+  };
+}
+
+function mergeSiteRow(existing, next) {
+  if (!existing) return next;
+  const firstRawSource = existing.raw_source || {};
+  return {
+    ...existing,
+    client: existing.client || next.client,
+    hyperviseur:
+      existing.hyperviseur !== undefined ? existing.hyperviseur : next.hyperviseur,
+    latitude:
+      existing.latitude !== null && existing.latitude !== undefined
+        ? existing.latitude
+        : next.latitude,
+    longitude:
+      existing.longitude !== null && existing.longitude !== undefined
+        ? existing.longitude
+        : next.longitude,
+    address: existing.address || next.address,
+    ce: existing.ce || next.ce,
+    raw_source: {
+      ...firstRawSource,
+      puissance: firstRawSource.puissance || next.raw_source?.puissance || null,
+      idCentrale:
+        firstRawSource.idCentrale || next.raw_source?.idCentrale || null,
+    },
   };
 }
 
@@ -252,16 +298,25 @@ function parseCreateTagRows(rows = []) {
       return;
     }
 
-    parsed.sites.set(normalized.siteCode, {
-      site_code: normalized.siteCode,
-      name: normalized.siteName,
-      client: normalized.client,
-      hyperviseur: normalized.hyperviseur,
-      raw_source: {
-        source: ROW_IMPORT_SOURCE,
-        firstRowIndex: index,
-      },
-    });
+    parsed.sites.set(
+      normalized.siteCode,
+      mergeSiteRow(parsed.sites.get(normalized.siteCode), {
+        site_code: normalized.siteCode,
+        name: normalized.siteName,
+        client: normalized.client,
+        hyperviseur: normalized.hyperviseur,
+        latitude: normalized.latitude,
+        longitude: normalized.longitude,
+        address: normalized.address,
+        ce: normalized.ce,
+        raw_source: {
+          source: ROW_IMPORT_SOURCE,
+          firstRowIndex: index,
+          puissance: normalized.puissance,
+          idCentrale: normalized.idCentrale,
+        },
+      }),
+    );
 
     const posteKey = `${normalized.siteCode}:${normalized.posteCode}`;
     if (!parsed.postes.has(posteKey)) {
@@ -446,6 +501,10 @@ async function importCreateTagRows(db, rows, options = {}) {
         name: site.name,
         client: site.client,
         hyperviseur: site.hyperviseur,
+        latitude: site.latitude,
+        longitude: site.longitude,
+        address: site.address,
+        ce: site.ce,
         raw_source: dbJson({
           ...site.raw_source,
           version: metadata.version,

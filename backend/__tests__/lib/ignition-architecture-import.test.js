@@ -72,6 +72,12 @@ const createTagRows = [
     Ordre_Cellule: 1,
     Client: "MQTT",
     Hyperviseur: true,
+    Lattitude: 44.1,
+    Longitude: -0.5,
+    Adresse: "Route solaire",
+    CE: "CE Sud",
+    Puissance: "1200",
+    id_Centrale: "P001",
   },
   {
     Site: "Plan Auron",
@@ -127,7 +133,13 @@ describe("ignition architecture import", () => {
       equipementCount: 1,
       onduleurCount: 1,
     });
-    expect([...parsed.sites.values()][0].site_code).toBe("PLAN_AURON");
+    expect([...parsed.sites.values()][0]).toMatchObject({
+      site_code: "PLAN_AURON",
+      latitude: 44.1,
+      longitude: -0.5,
+      address: "Route solaire",
+      ce: "CE Sud",
+    });
   });
 
   test("previews Create_Tag rows without requiring database writes", () => {
@@ -200,6 +212,16 @@ describe("ignition architecture import", () => {
     expect(db.data.architecture_equipements).toHaveLength(1);
     expect(db.data.architecture_onduleurs).toHaveLength(1);
     expect(db.data.architecture_imports).toHaveLength(2);
+    expect(db.data.architecture_sites[0]).toMatchObject({
+      latitude: 44.1,
+      longitude: -0.5,
+      address: "Route solaire",
+      ce: "CE Sud",
+    });
+    expect(JSON.parse(db.data.architecture_sites[0].raw_source)).toMatchObject({
+      puissance: "1200",
+      idCentrale: "P001",
+    });
     expect(db.data.architecture_onduleurs[0]).toMatchObject({
       onduleur_code: "ONDULEUR_3",
       numero_onduleur: 3,

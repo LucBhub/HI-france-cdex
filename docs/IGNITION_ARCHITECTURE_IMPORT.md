@@ -41,6 +41,8 @@ Nom_Onduleur, Num_Onduleur, Adresse_Ip, Client, Hyperviseur
 Mapping cible:
 
 - `Site` -> `architecture_sites.site_code` et `name`.
+- champs site optionnels `Lattitude`, `Longitude`, `Adresse`, `CE` -> `architecture_sites`.
+- champs site optionnels `Puissance`, `id_Centrale` -> `architecture_sites.raw_source`.
 - `type_poste` -> `architecture_postes.poste_code` et `type_poste`.
 - ligne cellule -> `architecture_cellules` si `Ordre_Cellule` existe ou si `Equipement` ressemble a une cellule.
 - ligne onduleur -> `architecture_onduleurs` si `Nom_Onduleur` ou `Num_Onduleur` existe, ou si `Equipement` contient `Onduleur`.
