@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hyperviseur-ingress
+  annotations:
+    # Ajustez selon votre Ingress Controller (nginx, traefik, azure, etc.)
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  tls:
+    - hosts:
+        - hi2.host.reden.cloud # ex: hyperviseur.reden.solar
+      secretName: hyperviseur-tls
+  rules:
+    - host: hi2.host.reden.cloud # ex: hyperviseur.reden.solar
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hyperviseur-frontend
+                port:
+                  number: 3000
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: hyperviseur-backend
+                port:
+                  number: 3001

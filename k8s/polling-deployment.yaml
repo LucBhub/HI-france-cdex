@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperviseur-polling
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hyperviseur-polling
+  template:
+    metadata:
+      labels:
+        app: hyperviseur-polling
+    spec:
+      imagePullSecrets:
+        - name: regcreds
+      containers:
+        - name: polling
+          image: registry.hyxo.ovh/reden/hi2:backend
+          command: ["npm", "run", "poll"]
+          env:
+            - name: INTERNAL_API_URL
+              value: "http://hyperviseur-backend:3001"
+            - name: POLLING_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: POLLING_SERVICE_TOKEN
+        # --- Sidecar Netclient (VPN) ---
+        # Nécessaire si les automates sont sur le réseau VPN Netmaker
+        - name: netclient
+          image: gravitl/netclient:latest
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+            privileged: true
+          env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: netmaker-access-token
+                  key: token
+            - name: NETCLIENT_SILENT
+              value: "on"

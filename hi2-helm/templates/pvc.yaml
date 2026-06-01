@@ -1,0 +1,15 @@
+{{- if .Values.postgres.enabled -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "hi2-helm.fullname" . }}-postgres-pvc
+  labels:
+    {{- include "hi2-helm.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.postgres.storage.size }}
+  storageClassName: {{ .Values.postgres.storage.className }}
+{{- end }}

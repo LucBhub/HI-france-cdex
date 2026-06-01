@@ -1,0 +1,196 @@
+# Default values for hi2-helm.
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+podSecurityContext: {}
+securityContext: {}
+
+# Backend Configuration
+backend:
+  replicaCount: 1
+  image:
+    repository: registry.hyxo.ovh/reden/hi2
+    pullPolicy: Always
+    tag: "backend"
+    credentials:
+      secretName: regcreds
+  service:
+    type: ClusterIP
+    port: 3001
+  env:
+    PORT: "3001"
+    DB_HOST: "hyperviseur-postgres" # To be templated if possible, but hardcoded value from k8s yaml is fine for now
+  # DB credentials will be injected from secret
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Frontend Configuration
+frontend:
+  replicaCount: 1
+  image:
+    repository: registry.hyxo.ovh/reden/hi2
+    pullPolicy: Always
+    tag: "frontend"
+    credentials:
+      secretName: regcreds
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    # INTERNAL_API_URL is dynamically set in deployment-frontend.yaml
+    # INTERNAL_API_URL: "http://hyperviseur-backend:3001"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Postgres Configuration
+postgres:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: postgres
+    pullPolicy: IfNotPresent
+    tag: "15-alpine"
+  service:
+    type: ClusterIP
+    port: 5432
+  storage:
+    size: 2Gi
+    className: longhorn
+  env:
+    POSTGRES_DB: hyperviseur
+  # User/Pass injected from secret
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+# Global Secrets (to be created by the chart)
+# Global Secrets (to be created by the chart)
+secrets:
+  # --- CREDENTIALS ---
+  # Do not commit real secrets here. Override these values with a local
+  # values file, CI secrets, or a cluster secret manager.
+  dbUser: "hyperviseur"
+  dbPass: ""
+  pollingServiceToken: ""
+  superadminUsername: "Admin"
+  superadminEmail: "superadmin@hyperviseur.com"
+  superadminPassword: ""
+  jwtSecret: ""
+  # --- AZURE AD (FROM LOCAL .ENV + PROD URI) ---
+  azureTenantId: ""
+  azureClientId: ""
+  azureClientSecret: ""
+  azureSenderEmail: "hyperviseur@reden.solar"
+  smtpHost: "smtp.office365.com"
+  smtpPort: "587"
+  smtpUser: "hyperviseur@reden.solar"
+  smtpPass: ""
+  openWeatherApiKey: ""
+  # PROD URLs (Override local IP with hi2.host.reden.cloud)
+  azureRedirectUri: "https://hi2.host.reden.cloud/api/auth/azure/callback"
+  frontendBaseUrl: "https://hi2.host.reden.cloud"
+
+# Backup Configuration (CronJob)
+backup:
+  enabled: true
+  schedule: "0 2 * * *" # Daily at 2 AM
+  retentionDays: 7
+  storage:
+    size: 5Gi
+    className: longhorn
+
+# Polling Service Configuration
+polling:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: registry.hyxo.ovh/reden/hi2
+    pullPolicy: Always
+    tag: "backend"
+    credentials:
+      secretName: regcreds
+  env:
+    # INTERNAL_API_URL is dynamically set in deployment-polling.yaml
+    # INTERNAL_API_URL: "http://hyperviseur-backend:3001"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Netclient Sidecar Configuration
+netclient:
+  enabled: false
+  token: "PLACEHOLDER_TOKEN" # Replace with actual token
+  silent: "on"
+
+ingress:
+  enabled: true
+  className: ""
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+  hosts:
+    - host: hi2.host.reden.cloud
+      paths:
+        - path: /
+          pathType: Prefix
+          backend: frontend
+        - path: /api
+          pathType: Prefix
+          backend: backend
+  tls:
+    - secretName: hyperviseur-tls
+      hosts:
+        - hi2.host.reden.cloud
+
+resources: {}
+livenessProbe:
+  httpGet:
+    path: /
+    port: http
+readinessProbe:
+  httpGet:
+    path: /
+    port: http
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+
+# Network Policies for security isolation
+networkPolicy:
+  enabled: false # Set to true in production for enhanced security
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,64 @@
+{{- if .Values.polling.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hi2-helm.fullname" . }}-polling
+  labels:
+    {{- include "hi2-helm.labels" . | nindent 4 }}
+    app: {{ include "hi2-helm.fullname" . }}-polling
+spec:
+  replicas: {{ .Values.polling.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hi2-helm.selectorLabels" . | nindent 6 }}
+      app: {{ include "hi2-helm.fullname" . }}-polling
+  template:
+    metadata:
+      labels:
+        {{- include "hi2-helm.selectorLabels" . | nindent 8 }}
+        app: {{ include "hi2-helm.fullname" . }}-polling
+    spec:
+      imagePullSecrets:
+        {{- with .Values.imagePullSecrets }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.polling.image.credentials }}
+        - name: {{ .secretName }}
+        {{- end }}
+      containers:
+        - name: polling
+          command: ["npm", "run", "poll"]
+          image: "{{ .Values.polling.image.repository }}:{{ .Values.polling.image.tag }}"
+          imagePullPolicy: {{ .Values.polling.image.pullPolicy }}
+          {{- if .Values.polling.resources }}
+          resources:
+            {{- toYaml .Values.polling.resources | nindent 12 }}
+          {{- end }}
+          env:
+            - name: INTERNAL_API_URL
+              value: "http://{{ include "hi2-helm.fullname" . }}-backend:3002"
+            - name: NODE_ENV
+              value: "production"
+            - name: POLLING_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hi2-helm.fullname" . }}-secrets
+                  key: POLLING_SERVICE_TOKEN
+        {{- if .Values.netclient.enabled }}
+        # --- Sidecar Netclient (VPN) ---
+        - name: netclient
+          image: gravitl/netclient:latest
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]
+            privileged: true
+          env:
+            - name: TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: netmaker-access-token
+                  key: token
+            - name: NETCLIENT_SILENT
+              value: {{ .Values.netclient.silent | quote }}
+        {{- end }}
+{{- end }}

@@ -1,0 +1,15 @@
+# Normalise toutes les fins de ligne en LF dans le repo (cohérent avec Docker/Linux)
+* text=auto eol=lf
+
+# Binaires — pas de conversion
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.dump binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary

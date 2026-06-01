@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hi2-helm.fullname" . }}-frontend
+  labels:
+    {{- include "hi2-helm.labels" . | nindent 4 }}
+    app: {{ include "hi2-helm.fullname" . }}-frontend
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hi2-helm.selectorLabels" . | nindent 6 }}
+      app: {{ include "hi2-helm.fullname" . }}-frontend
+  template:
+    metadata:
+      labels:
+        {{- include "hi2-helm.selectorLabels" . | nindent 8 }}
+        app: {{ include "hi2-helm.fullname" . }}-frontend
+    spec:
+      imagePullSecrets:
+        {{- with .Values.imagePullSecrets }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+        {{- with .Values.frontend.image.credentials }}
+        - name: {{ .secretName }}
+        {{- end }}
+      containers:
+        - name: frontend
+          command: ["node", "server.js"]
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.frontend.service.port }}
+          env:
+            - name: INTERNAL_API_URL
+              value: "http://{{ include "hi2-helm.fullname" . }}-backend:3002"
+            - name: FORCE_HTTP
+              value: "true"
+            - name: NEXT_PUBLIC_OPENWEATHER_API_KEY
+              value: {{ .Values.secrets.openWeatherApiKey | quote }}
+          livenessProbe:
+            tcpSocket:
+              port: {{ .Values.frontend.service.port }}
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: {{ .Values.frontend.service.port }}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          {{- if .Values.frontend.resources }}
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          {{- end }}

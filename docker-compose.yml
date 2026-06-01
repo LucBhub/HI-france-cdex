@@ -1,0 +1,174 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: https://${HOST_IP}:3001
+        NEXT_PUBLIC_RELAY_API_URL: https://${HOST_IP}:3001/api/control
+        NEXT_PUBLIC_OPENWEATHER_API_KEY: ${NEXT_PUBLIC_OPENWEATHER_API_KEY:-}
+    container_name: hyperviseur-frontend
+    env_file:
+      - .env
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      INTERNAL_API_URL: http://backend:3002
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://localhost:3001}
+      NODE_ENV: production
+    depends_on:
+      - backend
+    volumes:
+      - ./certs:/app/certs
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hyperviseur-backend
+    env_file:
+      - .env
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/db:/app/db
+      - ./backend/index.js:/app/index.js
+      - ./.env:/app/.env
+      - ./certs:/certs
+    environment:
+      PORT: 3001
+      POLLING_SERVICE_TOKEN: ${POLLING_SERVICE_TOKEN:-}
+      # Database Config
+      NODE_ENV: production
+      CORS_ORIGINS: https://${HOST_IP}:3000
+      FRONTEND_BASE_URL: https://${HOST_IP}:3000
+      AZURE_SENDER_EMAIL: ${AZURE_SENDER_EMAIL:-L.boillat@reden.solar}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      DB_NAME: ${DB_NAME:-hyperviseur}
+      MQTT_URL: ${MQTT_URL:-mqtt://mqtt-broker:1883}
+      COMMAND_MODE: ${COMMAND_MODE:-dry_run}
+      COMMAND_LIVE_ENABLED: ${COMMAND_LIVE_ENABLED:-false}
+      COMMAND_DRY_RUN_PUBLISH: ${COMMAND_DRY_RUN_PUBLISH:-true}
+    command: ["npm", "start"]
+    depends_on:
+      - postgres
+      - mqtt-broker
+
+  polling-service:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hyperviseur-polling-service
+    env_file:
+      - .env
+    restart: unless-stopped
+    command: ["npm", "run", "poll"]
+    depends_on:
+      - backend
+      - postgres
+    environment:
+      INTERNAL_API_URL: http://backend:3002
+      POLLING_SERVICE_TOKEN: ${POLLING_SERVICE_TOKEN:-}
+      NODE_TLS_REJECT_UNAUTHORIZED: 0
+      # Database Config (if polling service needs direct DB access in future, though it interacts via API mostly)
+      # But current polling service calls API, so maybe not strictly needed, but good to have env consistency
+      NODE_ENV: production
+    volumes:
+      - ./.env:/app/.env
+      - ./backend/polling-service.js:/app/polling-service.js
+      - ./backend/lib:/app/lib
+      - ./certs:/certs
+
+  mqtt-broker:
+    image: eclipse-mosquitto:2
+    container_name: hyperviseur-mqtt-sandbox
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/sandbox.conf:/mosquitto/config/mosquitto.conf:ro
+
+  mqtt-simulator:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hyperviseur-mqtt-simulator
+    env_file:
+      - .env
+    restart: unless-stopped
+    command: ["npm", "run", "mqtt:simulator"]
+    depends_on:
+      - mqtt-broker
+      - postgres
+    environment:
+      NODE_ENV: production
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      DB_NAME: ${DB_NAME:-hyperviseur}
+      MQTT_URL: ${MQTT_URL:-mqtt://mqtt-broker:1883}
+      COMMAND_MODE: ${COMMAND_MODE:-dry_run}
+      COMMAND_LIVE_ENABLED: ${COMMAND_LIVE_ENABLED:-false}
+      COMMAND_DRY_RUN_PUBLISH: ${COMMAND_DRY_RUN_PUBLISH:-true}
+    volumes:
+      - ./.env:/app/.env
+      - ./backend/mqtt-simulator.js:/app/mqtt-simulator.js
+      - ./backend/db:/app/db
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: hyperviseur-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASS:-postgres}
+      POSTGRES_DB: ${DB_NAME:-hyperviseur}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+
+  backup-service:
+    image: postgres:15-alpine
+    container_name: hyperviseur-backup
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASS: ${DB_PASS:-postgres}
+      DB_NAME: ${DB_NAME:-hyperviseur}
+    volumes:
+      - ./backups:/backups
+      - ./backend/scripts/backup.sh:/usr/local/bin/backup.sh
+      - ./backend/scripts/restore.sh:/usr/local/bin/restore.sh
+    # Run backup script periodically (e.g., every 24h = 86400s)
+    # Start with a delay to let DB ensure it's up, then loop
+    entrypoint: >
+      /bin/sh -c "
+        chmod +x /usr/local/bin/backup.sh;
+        echo 'Backup scheduler started...';
+        echo 'Running initial backup...';
+        sleep 30;
+        /usr/local/bin/backup.sh;
+        while true; do
+          echo 'Waiting 24h for next backup...';
+          sleep 86400; 
+          /usr/local/bin/backup.sh;
+        done
+      "
+
+volumes:
+  postgres_data:

@@ -1,0 +1,67 @@
+{{- if .Values.backup.enabled -}}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "hi2-helm.fullname" . }}-backup
+  labels:
+    {{- include "hi2-helm.labels" . | nindent 4 }}
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            {{- include "hi2-helm.selectorLabels" . | nindent 12 }}
+            app: {{ include "hi2-helm.fullname" . }}-backup
+        spec:
+          restartPolicy: OnFailure
+          containers:
+            - name: backup
+              image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+              env:
+                - name: DB_HOST
+                  value: {{ include "hi2-helm.fullname" . }}-postgres
+                - name: DB_PORT
+                  value: "5432"
+                - name: DB_USER
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "hi2-helm.fullname" . }}-secrets
+                      key: DB_USER
+                - name: DB_PASS
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "hi2-helm.fullname" . }}-secrets
+                      key: DB_PASS
+                - name: DB_NAME
+                  value: {{ .Values.postgres.env.POSTGRES_DB | quote }}
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ include "hi2-helm.fullname" . }}-secrets
+                      key: DB_PASS
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -e
+                  TIMESTAMP=$(date +%Y-%m-%d_%H-%M-%S)
+                  FILENAME="/backups/hyperviseur_backup_${TIMESTAMP}.dump"
+                  echo "[Backup] Starting backup at ${TIMESTAMP}..."
+                  pg_dump -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -F c -f "$FILENAME"
+                  echo "[Backup] Created: ${FILENAME}"
+                  echo "[Backup] Cleaning up backups older than {{ .Values.backup.retentionDays }} days..."
+                  find /backups -name "hyperviseur_backup_*.dump" -mtime +{{ .Values.backup.retentionDays }} -exec rm {} \; -print
+                  echo "[Backup] Done."
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: {{ include "hi2-helm.fullname" . }}-backup-pvc
+{{- end }}

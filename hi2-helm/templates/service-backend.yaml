@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hi2-helm.fullname" . }}-backend
+  labels:
+    {{- include "hi2-helm.labels" . | nindent 4 }}
+    app: {{ include "hi2-helm.fullname" . }}-backend
+spec:
+  type: {{ .Values.backend.service.type }}
+  ports:
+    - port: {{ .Values.backend.service.port }}
+      targetPort: {{ .Values.backend.service.port }}
+      protocol: TCP
+      name: http
+    - port: 3002
+      targetPort: 3002
+      protocol: TCP
+      name: internal-http
+  selector:
+    {{- include "hi2-helm.selectorLabels" . | nindent 4 }}
+    app: {{ include "hi2-helm.fullname" . }}-backend

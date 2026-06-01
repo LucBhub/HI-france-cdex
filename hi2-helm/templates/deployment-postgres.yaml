@@ -1,0 +1,53 @@
+{{- if .Values.postgres.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hi2-helm.fullname" . }}-postgres
+  labels:
+    {{- include "hi2-helm.labels" . | nindent 4 }}
+    app: {{ include "hi2-helm.fullname" . }}-postgres
+spec:
+  replicas: {{ .Values.postgres.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hi2-helm.selectorLabels" . | nindent 6 }}
+      app: {{ include "hi2-helm.fullname" . }}-postgres
+  template:
+    metadata:
+      labels:
+        {{- include "hi2-helm.selectorLabels" . | nindent 8 }}
+        app: {{ include "hi2-helm.fullname" . }}-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.postgres.service.port }}
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.env.POSTGRES_DB | quote }}
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hi2-helm.fullname" . }}-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "hi2-helm.fullname" . }}-secrets
+                  key: DB_PASS
+          {{- if .Values.postgres.resources }}
+          resources:
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: {{ include "hi2-helm.fullname" . }}-postgres-pvc
+{{- end }}

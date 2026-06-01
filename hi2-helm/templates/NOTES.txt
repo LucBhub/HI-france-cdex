@@ -1,0 +1,11 @@
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+  {{- end }}
+{{- end }}
+{{- else }}
+  kubectl port-forward svc/{{ include "hi2-helm.fullname" . }}-frontend 3000:3000
+  echo "Visit http://127.0.0.1:3000 to use your application"
+{{- end }}

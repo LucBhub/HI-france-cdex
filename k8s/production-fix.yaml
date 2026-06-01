@@ -1,0 +1,266 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: hyperviseur-secrets
+type: Opaque
+stringData:
+  # --- CREDENTIALS ---
+  # Do not commit real production secrets in this manifest.
+  DB_USER: "hyperviseur"
+  DB_PASS: ""
+  POLLING_SERVICE_TOKEN: ""
+  SUPERADMIN_USERNAME: "Admin"
+  SUPERADMIN_EMAIL: "superadmin@hyperviseur.com"
+  SUPERADMIN_PASSWORD: ""
+  JWT_SECRET: ""
+  # --- AZURE AD (FROM LOCAL .ENV + PROD URI) ---
+  AZURE_TENANT_ID: ""
+  AZURE_CLIENT_ID: ""
+  AZURE_CLIENT_SECRET: ""
+  # PROD URLs (Override local IP with hi2.host.reden.cloud)
+  AZURE_REDIRECT_URI: "https://hi2.host.reden.cloud/api/auth/azure/callback"
+  AZURE_SENDER_EMAIL: "hyperviseur@reden.solar"
+  SMTP_HOST: "smtp.office365.com"
+  SMTP_PORT: "587"
+  SMTP_USER: "hyperviseur@reden.solar"
+  SMTP_PASS: ""
+  FRONTEND_BASE_URL: "https://hi2.host.reden.cloud"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperviseur-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hyperviseur-backend
+  template:
+    metadata:
+      labels:
+        app: hyperviseur-backend
+    spec:
+      imagePullSecrets:
+        - name: regcreds
+      containers:
+        - name: backend
+          image: registry.hyxo.ovh/reden/hi2:backend # UPDATED: Matches IT's value
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+            - containerPort: 3002
+              name: internal-http
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          env:
+            - name: PORT
+              value: "3001"
+            - name: INTERNAL_PORT
+              value: "3002"
+            - name: NODE_ENV
+              value: "production"
+            - name: DB_NAME
+              value: "hyperviseur"
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_HOST
+              value: "hyperviseur-postgres"
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: DB_PASS
+            - name: POLLING_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: POLLING_SERVICE_TOKEN
+            - name: SUPERADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: SUPERADMIN_USERNAME
+            - name: SUPERADMIN_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: SUPERADMIN_EMAIL
+            - name: SUPERADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: SUPERADMIN_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: JWT_SECRET
+            # --- AZURE AD ---
+            - name: AZURE_TENANT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: AZURE_TENANT_ID
+            - name: AZURE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: AZURE_CLIENT_ID
+            - name: AZURE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: AZURE_CLIENT_SECRET
+            - name: AZURE_REDIRECT_URI
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: AZURE_REDIRECT_URI
+            - name: FRONTEND_BASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: FRONTEND_BASE_URL
+            - name: AZURE_SENDER_EMAIL
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: AZURE_SENDER_EMAIL
+            - name: SMTP_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: SMTP_HOST
+            - name: SMTP_PORT
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: SMTP_PORT
+            - name: SMTP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: SMTP_USER
+            - name: SMTP_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: SMTP_PASS
+      # --- Sidecar Netclient (VPN) - DISABLED UNTIL READY ---
+      # - name: netclient
+      #   image: gravitl/netclient:latest
+      #   securityContext:
+      #     capabilities:
+      #       add: ["NET_ADMIN"]
+      #     privileged: true
+      #   env:
+      #     - name: TOKEN
+      #       valueFrom:
+      #         secretKeyRef:
+      #           name: netmaker-access-token
+      #           key: token
+      #     - name: NETCLIENT_SILENT
+      #       value: "on"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperviseur-backend
+spec:
+  selector:
+    app: hyperviseur-backend
+  ports:
+    - protocol: TCP
+      port: 3001
+      targetPort: 3001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperviseur-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hyperviseur-postgres
+  template:
+    metadata:
+      labels:
+        app: hyperviseur-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: DB_PASS
+            - name: POSTGRES_DB
+              value: hyperviseur
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hyperviseur-ingress
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  tls:
+    - hosts:
+        - hi2.host.reden.cloud
+      secretName: hyperviseur-tls
+  rules:
+    - host: hi2.host.reden.cloud
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: hyperviseur-backend
+                port:
+                  number: 3001
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: hyperviseur-frontend
+                port:
+                  number: 3000

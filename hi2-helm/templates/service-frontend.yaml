@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hi2-helm.fullname" . }}-frontend
+  labels:
+    {{- include "hi2-helm.labels" . | nindent 4 }}
+    app: {{ include "hi2-helm.fullname" . }}-frontend
+spec:
+  type: {{ .Values.frontend.service.type }}
+  ports:
+    - port: {{ .Values.frontend.service.port }}
+      targetPort: {{ .Values.frontend.service.port }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "hi2-helm.selectorLabels" . | nindent 4 }}
+    app: {{ include "hi2-helm.fullname" . }}-frontend

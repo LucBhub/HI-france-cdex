@@ -1,0 +1,142 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperviseur-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hyperviseur-backend
+  template:
+    metadata:
+      labels:
+        app: hyperviseur-backend
+    spec:
+      imagePullSecrets:
+        - name: regcreds
+      containers:
+        - name: backend
+          image: registry.hyxo.ovh/reden/hi2:backend
+          ports:
+            - containerPort: 3001
+          env:
+            - name: PORT
+              value: "3001"
+            - name: DB_HOST
+              value: "hyperviseur-postgres" # Nom du service K8s pour la DB
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: DB_USER
+            - name: DB_PASS
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: DB_PASS
+            - name: POLLING_SERVICE_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: POLLING_SERVICE_TOKEN
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperviseur-backend
+spec:
+  selector:
+    app: hyperviseur-backend
+  ports:
+    - protocol: TCP
+      port: 3001
+      targetPort: 3001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperviseur-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hyperviseur-frontend
+  template:
+    metadata:
+      labels:
+        app: hyperviseur-frontend
+    spec:
+      imagePullSecrets:
+        - name: regcreds
+      containers:
+        - name: frontend
+          image: registry.hyxo.ovh/reden/hi2:frontend
+          ports:
+            - containerPort: 3000
+          env:
+            - name: INTERNAL_API_URL
+              value: "http://hyperviseur-backend:3001" # Communication interne pods
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperviseur-frontend
+spec:
+  selector:
+    app: hyperviseur-frontend
+  ports:
+    - protocol: TCP
+      port: 3000
+      targetPort: 3000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hyperviseur-postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hyperviseur-postgres
+  template:
+    metadata:
+      labels:
+        app: hyperviseur-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: hyperviseur-secrets
+                  key: DB_PASS
+            - name: POSTGRES_DB
+              value: hyperviseur
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hyperviseur-postgres
+spec:
+  selector:
+    app: hyperviseur-postgres
+  ports:
+    - protocol: TCP
+      port: 5432
+      targetPort: 5432

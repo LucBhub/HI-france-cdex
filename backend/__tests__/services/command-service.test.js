@@ -1,0 +1,177 @@
+const EventEmitter = require("events");
+const {
+  buildPlannedEvents,
+  executeCommand,
+} = require("../../services/command-service");
+
+function matches(row, criteria) {
+  return Object.entries(criteria || {}).every(([key, value]) => row[key] === value);
+}
+
+function makeDb(initial = {}) {
+  const data = {
+    command_catalog: [],
+    command_runs: [],
+    sandbox_mqtt_events: [],
+    ...initial,
+  };
+  const nextIds = {
+    command_runs: data.command_runs.length + 1,
+    sandbox_mqtt_events: data.sandbox_mqtt_events.length + 1,
+  };
+
+  function db(table) {
+    const state = { criteria: null };
+    const chain = {
+      where(criteria) {
+        state.criteria = criteria;
+        return chain;
+      },
+      async first() {
+        return data[table].find((row) => matches(row, state.criteria));
+      },
+      insert(row) {
+        const id = nextIds[table] || data[table].length + 1;
+        nextIds[table] = id + 1;
+        data[table].push({ id, ...row });
+        const result = Promise.resolve([id]);
+        result.returning = async () => [id];
+        return result;
+      },
+      async update(row) {
+        const rows = data[table].filter((item) => matches(item, state.criteria));
+        rows.forEach((item) => Object.assign(item, row));
+        return rows.length;
+      },
+    };
+    return chain;
+  }
+
+  db.data = data;
+  db.fn = { now: jest.fn(() => "now") };
+  return db;
+}
+
+const catalogRow = {
+  command_key: "legacy.relay.couple",
+  template: {
+    requiredTarget: ["plantId", "relayId"],
+    topicTemplates: ["legacy/plants/{plantId}/relays/{relayId}/control/couple"],
+    payloadSequence: ["true"],
+  },
+};
+
+describe("command-service", () => {
+  const OLD_ENV = process.env;
+
+  beforeEach(() => {
+    jest.resetModules();
+    process.env = { ...OLD_ENV };
+    process.env.COMMAND_LIVE_ENABLED = "false";
+    process.env.COMMAND_DRY_RUN_PUBLISH = "false";
+  });
+
+  afterAll(() => {
+    process.env = OLD_ENV;
+  });
+
+  test("builds planned MQTT events from catalog templates", () => {
+    const events = buildPlannedEvents(catalogRow, { plantId: 1, relayId: 2 });
+
+    expect(events).toEqual([
+      {
+        sequence: 1,
+        transport: "mqtt",
+        topic: "legacy/plants/1/relays/2/control/couple",
+        payload: "true",
+        plannedPulseMs: 0,
+      },
+    ]);
+  });
+
+  test("rejects unknown commands", async () => {
+    const db = makeDb();
+
+    await expect(
+      executeCommand(
+        { commandKey: "missing", target: {}, params: {}, user: { username: "u" } },
+        { knex: db, logAudit: jest.fn() },
+      ),
+    ).rejects.toMatchObject({ status: 404, code: "unknown_command" });
+  });
+
+  test("rejects incomplete targets", async () => {
+    const db = makeDb({ command_catalog: [catalogRow] });
+
+    await expect(
+      executeCommand(
+        { commandKey: "legacy.relay.couple", target: { plantId: 1 }, user: { username: "u" } },
+        { knex: db, logAudit: jest.fn() },
+      ),
+    ).rejects.toMatchObject({ status: 400, code: "missing_field" });
+  });
+
+  test("rejects live mode before touching the database", async () => {
+    const db = makeDb({ command_catalog: [catalogRow] });
+
+    await expect(
+      executeCommand(
+        { commandKey: "legacy.relay.couple", mode: "live", target: {}, user: { username: "u" } },
+        { knex: db, logAudit: jest.fn() },
+      ),
+    ).rejects.toMatchObject({ status: 403, code: "live_disabled" });
+
+    expect(db.data.command_runs).toHaveLength(0);
+  });
+
+  test("creates command run, sandbox event and audit log in dry-run", async () => {
+    const db = makeDb({ command_catalog: [catalogRow] });
+    const audit = jest.fn().mockResolvedValue(undefined);
+
+    const result = await executeCommand(
+      {
+        commandKey: "legacy.relay.couple",
+        target: { plantId: 1, relayId: 2 },
+        user: { id: 7, username: "alice" },
+        ipAddress: "127.0.0.1",
+      },
+      { knex: db, logAudit: audit },
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.dryRun).toBe(true);
+    expect(db.data.command_runs).toHaveLength(1);
+    expect(db.data.sandbox_mqtt_events).toHaveLength(1);
+    expect(audit).toHaveBeenCalledWith(
+      expect.objectContaining({ action: "COMMAND_DRY_RUN", targetId: 1 }),
+    );
+  });
+
+  test("marks the run as sandbox_failed when broker publish fails", async () => {
+    process.env.COMMAND_DRY_RUN_PUBLISH = "true";
+    const db = makeDb({ command_catalog: [catalogRow] });
+    const mqtt = {
+      connect: jest.fn(() => {
+        const client = new EventEmitter();
+        client.publish = jest.fn();
+        client.end = jest.fn();
+        process.nextTick(() => client.emit("error", new Error("broker down")));
+        return client;
+      }),
+    };
+
+    await expect(
+      executeCommand(
+        {
+          commandKey: "legacy.relay.couple",
+          target: { plantId: 1, relayId: 2 },
+          user: { username: "alice" },
+        },
+        { knex: db, logAudit: jest.fn(), mqtt },
+      ),
+    ).rejects.toMatchObject({ status: 503, code: "sandbox_unavailable" });
+
+    expect(db.data.command_runs[0].status).toBe("sandbox_failed");
+    expect(db.data.sandbox_mqtt_events[0].status).toBe("failed");
+  });
+});

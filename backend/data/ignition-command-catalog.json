@@ -1,0 +1,220 @@
+[
+  {
+    "commandKey": "cell.open",
+    "label": "Ouverture cellule",
+    "family": "cell",
+    "riskLevel": "high",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site", "poste", "cellule"],
+      "topicTemplates": ["{site}/{poste}/{cellule}/CMD/OUVERTURE_{cellule}/"],
+      "tagTemplates": ["[MQTT Engine]Edge Nodes/{client}/{site}/{poste}/{cellule}/CMD_-_Ouverture_{cellule}"],
+      "payloadSequence": ["true", "false"],
+      "plannedPulseMs": 5000
+    },
+    "metadata": { "sourceView": "Commande/Commande" }
+  },
+  {
+    "commandKey": "cell.close",
+    "label": "Fermeture cellule",
+    "family": "cell",
+    "riskLevel": "high",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site", "poste", "cellule"],
+      "topicTemplates": ["{site}/{poste}/{cellule}/CMD/FERMETURE_{cellule}/"],
+      "tagTemplates": ["[MQTT Engine]Edge Nodes/{client}/{site}/{poste}/{cellule}/CMD_-_Fermeture_{cellule}"],
+      "payloadSequence": ["true", "false"],
+      "plannedPulseMs": 5000
+    },
+    "metadata": { "sourceView": "Commande/Commande" }
+  },
+  {
+    "commandKey": "deie.authorize_coupling",
+    "label": "Autorisation couplage DEIE",
+    "family": "deie",
+    "riskLevel": "critical",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site", "poste"],
+      "topicTemplates": ["{site}/COMMANDES/Autorisation_couplage"],
+      "tagTemplates": ["[MQTT Engine]Edge Nodes/{client}/{site}/{poste}/DEIE/CMD_-_Autorisation_couplage"],
+      "payloadSequence": ["true", "false"],
+      "plannedPulseMs": 5000
+    },
+    "metadata": { "sourceView": "Commande/CMD DEIE" }
+  },
+  {
+    "commandKey": "deie.request_decoupling",
+    "label": "Demande decouplage DEIE",
+    "family": "deie",
+    "riskLevel": "critical",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site", "poste"],
+      "topicTemplates": ["{site}/COMMANDES/Demande_decouplage"],
+      "tagTemplates": ["[MQTT Engine]Edge Nodes/{client}/{site}/{poste}/DEIE/CMD_-_Demande_decouplage"],
+      "payloadSequence": ["true", "false"],
+      "plannedPulseMs": 5000
+    },
+    "metadata": { "sourceView": "Commande/CMD DEIE" }
+  },
+  {
+    "commandKey": "deie.request_urgent_decoupling",
+    "label": "Demande decouplage urgent DEIE",
+    "family": "deie",
+    "riskLevel": "critical",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site", "poste"],
+      "topicTemplates": ["{site}/COMMANDES/Demande_decouplage_urgent"],
+      "tagTemplates": ["[MQTT Engine]Edge Nodes/{client}/{site}/{poste}/DEIE/CMD_-_Demande_decouplage_urgent"],
+      "payloadSequence": ["true", "false"],
+      "plannedPulseMs": 5000
+    },
+    "metadata": { "sourceView": "Commande/CMD DEIE" }
+  },
+  {
+    "commandKey": "synoptic.acknowledge",
+    "label": "Acquittement synoptique",
+    "family": "synoptic",
+    "riskLevel": "medium",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site"],
+      "topicTemplates": ["{site}/COMMANDES/Acquittement"],
+      "tagTemplates": ["[MQTT Engine]Edge Nodes/{client}/{site}/{poste}/CMD_-_Aquitement"],
+      "payloadSequence": ["true", "false"],
+      "plannedPulseMs": 5000
+    },
+    "metadata": { "sourceView": "Vue_Synoptique_Test" }
+  },
+  {
+    "commandKey": "ptr.charger_restart",
+    "label": "Relance chargeur C13-100",
+    "family": "ptr",
+    "riskLevel": "medium",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site", "poste"],
+      "topicTemplates": ["{site}/{poste}/CHARGEUR C13-100/CMD/RELANCE/"],
+      "tagTemplates": ["[MQTT Engine]Edge Nodes/{client}/{site}/{poste}/CHARGEUR_C13-100/CMD_-_Relance_chargeur"],
+      "payloadSequence": ["true", "false"],
+      "plannedPulseMs": 10000
+    },
+    "metadata": { "sourceView": "Vue_PTR" }
+  },
+  {
+    "commandKey": "inverter.stop_start",
+    "label": "Stop/start onduleur",
+    "family": "inverter",
+    "riskLevel": "high",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site", "poste"],
+      "topicTemplates": ["{site}/{poste}/ONDULEUR/CMD/STOP/"],
+      "tagTemplates": ["[MQTT Engine]Edge Nodes/{client}/{site}/{poste}/ONDULEUR/{onduleur}/CMD_-_Stop"],
+      "payloadParam": "enabled",
+      "defaultPayload": "false"
+    },
+    "metadata": { "sourceView": "Onduleur/Onduleur (1)" }
+  },
+  {
+    "commandKey": "inverter.stop_start_all",
+    "label": "Stop/start tous onduleurs",
+    "family": "inverter",
+    "riskLevel": "high",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": ["site", "poste"],
+      "topicTemplates": ["{site}/{poste}/ONDULEUR/CMD/STOP/"],
+      "payloadParam": "enabled",
+      "defaultPayload": "false"
+    },
+    "metadata": { "sourceView": "Onduleur/Vue_Onduleur_PTR" }
+  },
+  {
+    "commandKey": "aggregator.stop_general",
+    "label": "Stop general agregateur",
+    "family": "aggregator",
+    "riskLevel": "critical",
+    "transport": "mqtt_or_tag",
+    "template": {
+      "requiredTarget": [],
+      "topicTemplates": ["CMD/Stop_Agregateur"],
+      "tagTemplates": ["[default]CMD/Stop_general"],
+      "payloadParam": "enabled",
+      "defaultPayload": "false"
+    },
+    "metadata": { "sourceView": "Agregateur/mode ok_manu" }
+  },
+  {
+    "commandKey": "aggregator.set_rapidite",
+    "label": "Rapidite donnees",
+    "family": "aggregator",
+    "riskLevel": "low",
+    "transport": "mqtt",
+    "template": {
+      "requiredTarget": ["site"],
+      "topicTemplates": ["{site}/CMD/RAPIDITE/"],
+      "payloadParam": "fast",
+      "defaultPayload": "true"
+    },
+    "metadata": { "sourceView": "Agregateur/View" }
+  },
+  {
+    "commandKey": "aggregator.set_stop_delay",
+    "label": "Delta stop onduleur",
+    "family": "aggregator",
+    "riskLevel": "medium",
+    "transport": "tag",
+    "template": {
+      "requiredParams": ["delayMinutes"],
+      "tagTemplates": ["[default]_EpexConfig/DelaiStop"],
+      "payloadParam": "delayMinutes"
+    },
+    "metadata": { "sourceView": "Agregateur/mode ok_manu" }
+  },
+  {
+    "commandKey": "legacy.relay.couple",
+    "label": "Coupler relais legacy",
+    "family": "legacy_relay",
+    "riskLevel": "critical",
+    "transport": "mqtt",
+    "template": {
+      "requiredTarget": ["plantId", "relayId"],
+      "topicTemplates": ["legacy/plants/{plantId}/relays/{relayId}/control/couple"],
+      "payloadSequence": ["true"],
+      "plannedPulseMs": 0
+    },
+    "metadata": { "sourceRoute": "/api/plants/:plantId/relays/:relayId/control" }
+  },
+  {
+    "commandKey": "legacy.relay.decouple",
+    "label": "Decoupler relais legacy",
+    "family": "legacy_relay",
+    "riskLevel": "critical",
+    "transport": "mqtt",
+    "template": {
+      "requiredTarget": ["plantId", "relayId"],
+      "topicTemplates": ["legacy/plants/{plantId}/relays/{relayId}/control/decouple"],
+      "payloadSequence": ["true"],
+      "plannedPulseMs": 0
+    },
+    "metadata": { "sourceRoute": "/api/plants/:plantId/relays/:relayId/control" }
+  },
+  {
+    "commandKey": "legacy.relay.reset",
+    "label": "Reset relais legacy",
+    "family": "legacy_relay",
+    "riskLevel": "high",
+    "transport": "mqtt",
+    "template": {
+      "requiredTarget": ["plantId", "relayId"],
+      "topicTemplates": ["legacy/plants/{plantId}/relays/{relayId}/control/reset"],
+      "payloadSequence": ["true"],
+      "plannedPulseMs": 0
+    },
+    "metadata": { "sourceRoute": "/api/plants/:plantId/relays/:relayId/control" }
+  }
+]
