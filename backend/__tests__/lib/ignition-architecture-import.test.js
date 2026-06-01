@@ -1,7 +1,10 @@
 const {
   classifyCreateTagRow,
   importCreateTagRows,
+  parseDelimitedText,
   parseCreateTagRows,
+  parseRowsPayload,
+  previewCreateTagRows,
   readArchitectureExportMetadata,
   recordIgnitionArchitectureMetadata,
 } = require("../../lib/ignition-architecture-import");
@@ -125,6 +128,40 @@ describe("ignition architecture import", () => {
       onduleurCount: 1,
     });
     expect([...parsed.sites.values()][0].site_code).toBe("PLAN_AURON");
+  });
+
+  test("previews Create_Tag rows without requiring database writes", () => {
+    const preview = previewCreateTagRows(createTagRows);
+
+    expect(preview).toMatchObject({
+      success: true,
+      dryRun: true,
+      stats: {
+        totalRows: 3,
+        siteCount: 1,
+        posteCount: 1,
+      },
+    });
+    expect(preview.samples.sites).toHaveLength(1);
+  });
+
+  test("parses CSV, TSV and JSON row payloads", () => {
+    const csv = [
+      "Site;type_poste;Equipement;Ordre_Cellule",
+      '"Plan Auron";"PTR 1";"Cellule Arrivee";1',
+    ].join("\n");
+    const tsv = "Site\ttype_poste\tEquipement\nPlan Auron\tPTR 1\tChargeur";
+    const json = `\uFEFF${JSON.stringify({ rows: createTagRows.slice(0, 1) })}`;
+
+    expect(parseDelimitedText(csv)[0]).toMatchObject({
+      Site: "Plan Auron",
+      Equipement: "Cellule Arrivee",
+    });
+    expect(parseRowsPayload(tsv, "rows.tsv")[0]).toMatchObject({
+      Site: "Plan Auron",
+      Equipement: "Chargeur",
+    });
+    expect(parseRowsPayload(json, "rows.json")).toHaveLength(1);
   });
 
   test("skips unknown row types without creating site or poste entities", () => {

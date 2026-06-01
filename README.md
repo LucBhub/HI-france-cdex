@@ -60,6 +60,14 @@ CI validates npm audit, backend tests, frontend typecheck/build, Compose configu
 
 The Ignition architecture ZIP is not a database dump. The sandbox records the extracted mapping as `metadata_only` and continues to backfill only known sites from `plants` until real `Architecture/Create_Tag` rows are supplied.
 
+Future `Architecture/Create_Tag` row exports can be previewed safely before any database write:
+
+```bash
+cd backend
+npm run architecture:import -- path/to/create-tag-rows.json
+npm run architecture:import -- --apply path/to/create-tag-rows.json
+```
+
 ## Environnements
 
 Le projet est structuré autour de trois environnements distincts :

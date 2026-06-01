@@ -68,11 +68,26 @@ Elle permet de verifier que l'import metadata est bien trace.
 
 ## Import futur de rows Create_Tag
 
-Quand un export de resultats `Architecture/Create_Tag` sera disponible en JSON:
+Quand un export de resultats `Architecture/Create_Tag` sera disponible en JSON, CSV ou TSV, commencer par une preview:
 
 ```powershell
 cd backend
 npm run architecture:import -- C:\path\to\create-tag-rows.json
+```
+
+La preview ne modifie pas la base et retourne les compteurs sites/postes/cellules/equipements/onduleurs plus quelques samples. Pour ecrire en base, il faut demander explicitement l'application:
+
+```powershell
+cd backend
+npm run architecture:import -- --apply C:\path\to\create-tag-rows.json
+```
+
+CSV et TSV sont aussi acceptes:
+
+```powershell
+cd backend
+npm run architecture:import -- C:\path\to\create-tag-rows.csv
+npm run architecture:import -- --apply C:\path\to\create-tag-rows.tsv
 ```
 
 Formats acceptes:
@@ -98,11 +113,12 @@ ou:
 }
 ```
 
-Sans argument, la commande enregistre seulement la metadata:
+Sans argument ou avec `--metadata-only`, la commande enregistre seulement la metadata:
 
 ```powershell
 cd backend
 npm run architecture:import
+npm run architecture:import -- --metadata-only
 ```
 
 ## Garde-fous
@@ -112,6 +128,7 @@ npm run architecture:import
 - Pas de bridge MQTT production.
 - Tous les imports sont journalises dans `architecture_imports`.
 - Les donnees issues de l'export restent marquees `validationStatus=inferred`.
+- Les fichiers de rows sont en preview par defaut; `--apply` est obligatoire pour ecrire en base.
 
 ## Tests
 
@@ -126,5 +143,6 @@ La couverture verifie:
 - lecture de la metadata versionnee;
 - classification cellule/equipement/onduleur;
 - parsing des lignes `Create_Tag`;
+- parsing JSON/CSV/TSV et preview dry-run;
 - import idempotent des entites;
 - import metadata-only sans creation d'entites enfants.

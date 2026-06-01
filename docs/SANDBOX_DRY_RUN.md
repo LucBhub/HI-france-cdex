@@ -211,6 +211,19 @@ Une metadata d'architecture extraite de l'export Ignition France est aussi enreg
 
 Cette metadata decrit la query `Architecture/Create_Tag` et ses mappings, mais ne contient pas les lignes reelles `dev_ignition`. Elle ne cree donc pas de postes, cellules, equipements ou onduleurs.
 
+Pour charger un futur export de lignes `Create_Tag`, utiliser d'abord la preview:
+
+```powershell
+cd backend
+npm run architecture:import -- C:\path\to\create-tag-rows.json
+```
+
+L'ecriture en base demande un opt-in explicite:
+
+```powershell
+npm run architecture:import -- --apply C:\path\to\create-tag-rows.json
+```
+
 ## Catalogue de commandes
 
 Source versionnee:
@@ -270,6 +283,7 @@ Couverture ajoutee:
 - correlation ACK simulateur.
 - resume et timeline des runs de commandes.
 - import architecture Ignition metadata-only.
+- preview/import JSON/CSV/TSV des futures lignes `Create_Tag`.
 
 Checks locaux recommandes avant push:
 

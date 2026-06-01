@@ -58,6 +58,95 @@ function parseBoolean(value) {
   return true;
 }
 
+function splitCsvLine(line, delimiter) {
+  const cells = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let index = 0; index < line.length; index += 1) {
+    const char = line[index];
+    const next = line[index + 1];
+
+    if (char === '"' && inQuotes && next === '"') {
+      current += '"';
+      index += 1;
+    } else if (char === '"') {
+      inQuotes = !inQuotes;
+    } else if (char === delimiter && !inQuotes) {
+      cells.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  cells.push(current);
+  return cells.map((cell) => cell.trim());
+}
+
+function detectDelimiter(headerLine) {
+  const commaCount = (headerLine.match(/,/g) || []).length;
+  const semicolonCount = (headerLine.match(/;/g) || []).length;
+  const tabCount = (headerLine.match(/\t/g) || []).length;
+
+  if (tabCount > commaCount && tabCount >= semicolonCount) return "\t";
+  if (semicolonCount > commaCount) return ";";
+  return ",";
+}
+
+function parseDelimitedText(content, options = {}) {
+  const normalized = String(content || "").replace(/^\uFEFF/, "");
+  const lines = normalized
+    .split(/\r?\n/)
+    .map((line) => line.trimEnd())
+    .filter((line) => line.trim() !== "");
+
+  if (lines.length === 0) return [];
+
+  const delimiter = options.delimiter || detectDelimiter(lines[0]);
+  const headers = splitCsvLine(lines[0], delimiter).map((header) => header.trim());
+
+  return lines.slice(1).map((line) => {
+    const cells = splitCsvLine(line, delimiter);
+    return headers.reduce((row, header, index) => {
+      row[header] = cells[index] === undefined ? "" : cells[index];
+      return row;
+    }, {});
+  });
+}
+
+function parseRowsPayload(content, filePath = "") {
+  const extension = path.extname(filePath).toLowerCase();
+  const normalized = String(content || "").replace(/^\uFEFF/, "");
+  const text = normalized.trim();
+
+  if (extension === ".csv" || extension === ".tsv") {
+    return parseDelimitedText(content, {
+      delimiter: extension === ".tsv" ? "\t" : undefined,
+    });
+  }
+
+  if (extension === ".json" || text.startsWith("{") || text.startsWith("[")) {
+    const payload = JSON.parse(normalized);
+    const rows = Array.isArray(payload) ? payload : payload.rows;
+    if (!Array.isArray(rows)) {
+      throw new Error("Rows file must be an array or an object with a rows array.");
+    }
+    return rows;
+  }
+
+  return parseDelimitedText(content);
+}
+
+function readCreateTagRowsFile(filePath) {
+  const absolutePath = path.resolve(process.cwd(), filePath);
+  const content = fs.readFileSync(absolutePath, "utf8");
+  return {
+    absolutePath,
+    rows: parseRowsPayload(content, absolutePath),
+  };
+}
+
 function classifyCreateTagRow(row = {}) {
   const equipement = cleanString(field(row, ["Equipement", "equipement"]));
   const ordreCellule = field(row, [
@@ -239,6 +328,22 @@ function parseCreateTagRows(rows = []) {
   parsed.stats.onduleurCount = parsed.onduleurs.size;
 
   return parsed;
+}
+
+function previewCreateTagRows(rows = []) {
+  const parsed = parseCreateTagRows(rows);
+  return {
+    success: true,
+    dryRun: true,
+    stats: parsed.stats,
+    samples: {
+      sites: [...parsed.sites.values()].slice(0, 5),
+      postes: [...parsed.postes.values()].slice(0, 5),
+      cellules: [...parsed.cellules.values()].slice(0, 5),
+      equipements: [...parsed.equipements.values()].slice(0, 5),
+      onduleurs: [...parsed.onduleurs.values()].slice(0, 5),
+    },
+  };
 }
 
 function dbJson(value) {
@@ -469,6 +574,10 @@ module.exports = {
   normalizeArchitectureCode,
   normalizeCreateTagRow,
   parseCreateTagRows,
+  parseDelimitedText,
+  parseRowsPayload,
+  previewCreateTagRows,
+  readCreateTagRowsFile,
   readArchitectureExportMetadata,
   recordIgnitionArchitectureMetadata,
 };
