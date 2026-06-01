@@ -4,8 +4,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_API_URL: https://${HOST_IP}:3001
-        NEXT_PUBLIC_RELAY_API_URL: https://${HOST_IP}:3001/api/control
+        NEXT_PUBLIC_API_URL: https://${HOST_IP}:${BACKEND_HTTPS_PORT:-3001}
+        NEXT_PUBLIC_RELAY_API_URL: https://${HOST_IP}:${BACKEND_HTTPS_PORT:-3001}/api/control
         NEXT_PUBLIC_OPENWEATHER_API_KEY: ${NEXT_PUBLIC_OPENWEATHER_API_KEY:-}
     container_name: ${HYPERVISEUR_CONTAINER_PREFIX:-hyperviseur}-frontend
     env_file:
@@ -15,7 +15,7 @@ services:
       - "${FRONTEND_HOST_PORT:-3000}:3000"
     environment:
       INTERNAL_API_URL: http://backend:3002
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://localhost:3001}
+      NEXT_PUBLIC_API_URL: https://${HOST_IP}:${BACKEND_HTTPS_PORT:-3001}
       NODE_ENV: production
     depends_on:
       backend:
@@ -44,8 +44,8 @@ services:
       POLLING_SERVICE_TOKEN: ${POLLING_SERVICE_TOKEN:-}
       # Database Config
       NODE_ENV: production
-      CORS_ORIGINS: https://${HOST_IP}:3000
-      FRONTEND_BASE_URL: https://${HOST_IP}:3000
+      CORS_ORIGINS: https://${HOST_IP}:${FRONTEND_HOST_PORT:-3000},http://${HOST_IP}:${FRONTEND_HOST_PORT:-3000},${CORS_ORIGINS:-}
+      FRONTEND_BASE_URL: https://${HOST_IP}:${FRONTEND_HOST_PORT:-3000}
       AZURE_SENDER_EMAIL: ${AZURE_SENDER_EMAIL:-L.boillat@reden.solar}
       SMTP_HOST: ${SMTP_HOST}
       SMTP_PORT: ${SMTP_PORT}
