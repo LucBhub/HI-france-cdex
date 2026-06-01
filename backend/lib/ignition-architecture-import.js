@@ -8,6 +8,7 @@ const ARCHITECTURE_EXPORT_PATH = path.join(
 
 const METADATA_IMPORT_SOURCE = "ignition_export_architecture_metadata";
 const ROW_IMPORT_SOURCE = "ignition_create_tag_rows";
+const SITE_IMPORT_SOURCE = "ignition_site_rows";
 
 function readArchitectureExportMetadata(filePath = ARCHITECTURE_EXPORT_PATH) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -225,6 +226,28 @@ function normalizeCreateTagRow(row = {}) {
   };
 }
 
+function normalizeSiteRow(row = {}) {
+  const siteName = cleanString(field(row, ["Site", "site", "name"]));
+  return {
+    siteName,
+    siteCode: normalizeSiteCode(siteName),
+    client: nullableString(field(row, ["Client", "client"])),
+    hyperviseur: parseBoolean(field(row, ["Hyperviseur", "hyperviseur"])),
+    latitude: parseNumber(field(row, ["Lattitude", "Latitude", "latitude"])),
+    longitude: parseNumber(field(row, ["Longitude", "longitude"])),
+    address: nullableString(field(row, ["Adresse", "Address", "address"])),
+    ce: nullableString(field(row, ["CE", "ce"])),
+    generation: nullableString(field(row, ["Generation", "generation"])),
+    puissance: nullableString(field(row, ["Puissance", "puissance"])),
+    agregateur: nullableString(field(row, ["Agregateur", "agregateur"])),
+    idCentrale: nullableString(
+      field(row, ["id_Centrale", "Id_Centrale", "idCentrale"]),
+    ),
+    idSite: field(row, ["idSite", "id_site", "id"]),
+    raw: row,
+  };
+}
+
 function mergeSiteRow(existing, next) {
   if (!existing) return next;
   const firstRawSource = existing.raw_source || {};
@@ -385,6 +408,52 @@ function parseCreateTagRows(rows = []) {
   return parsed;
 }
 
+function parseSiteRows(rows = []) {
+  if (!Array.isArray(rows)) {
+    throw new TypeError("Site rows must be an array.");
+  }
+
+  const parsed = {
+    sites: new Map(),
+    stats: {
+      totalRows: rows.length,
+      skippedRows: 0,
+      skipped: [],
+    },
+  };
+
+  rows.forEach((row, index) => {
+    const normalized = normalizeSiteRow(row);
+    if (!normalized.siteCode || !normalized.siteName) {
+      addSkipped(parsed.stats, index, "missing_site", row);
+      return;
+    }
+
+    parsed.sites.set(normalized.siteCode, {
+      site_code: normalized.siteCode,
+      name: normalized.siteName,
+      client: normalized.client,
+      hyperviseur: normalized.hyperviseur,
+      latitude: normalized.latitude,
+      longitude: normalized.longitude,
+      address: normalized.address,
+      ce: normalized.ce,
+      raw_source: {
+        source: SITE_IMPORT_SOURCE,
+        firstRowIndex: index,
+        idSite: normalized.idSite,
+        generation: normalized.generation,
+        puissance: normalized.puissance,
+        agregateur: normalized.agregateur,
+        idCentrale: normalized.idCentrale,
+      },
+    });
+  });
+
+  parsed.stats.siteCount = parsed.sites.size;
+  return parsed;
+}
+
 function previewCreateTagRows(rows = []) {
   const parsed = parseCreateTagRows(rows);
   return {
@@ -397,6 +466,18 @@ function previewCreateTagRows(rows = []) {
       cellules: [...parsed.cellules.values()].slice(0, 5),
       equipements: [...parsed.equipements.values()].slice(0, 5),
       onduleurs: [...parsed.onduleurs.values()].slice(0, 5),
+    },
+  };
+}
+
+function previewSiteRows(rows = []) {
+  const parsed = parseSiteRows(rows);
+  return {
+    success: true,
+    dryRun: true,
+    stats: parsed.stats,
+    samples: {
+      sites: [...parsed.sites.values()].slice(0, 5),
     },
   };
 }
@@ -623,19 +704,81 @@ async function importCreateTagRows(db, rows, options = {}) {
   };
 }
 
+async function importSiteRows(db, rows, options = {}) {
+  const metadata = options.metadata || readArchitectureExportMetadata();
+  const parsed = parseSiteRows(rows);
+  const counts = {
+    sitesCreated: 0,
+    sitesUpdated: 0,
+  };
+
+  for (const site of parsed.sites.values()) {
+    const result = await upsertBy(
+      db,
+      "architecture_sites",
+      { site_code: site.site_code },
+      {
+        site_code: site.site_code,
+        name: site.name,
+        client: site.client,
+        hyperviseur: site.hyperviseur,
+        latitude: site.latitude,
+        longitude: site.longitude,
+        address: site.address,
+        ce: site.ce,
+        raw_source: dbJson({
+          ...site.raw_source,
+          version: metadata.version,
+        }),
+      },
+    );
+    if (result.created) counts.sitesCreated += 1;
+    else counts.sitesUpdated += 1;
+  }
+
+  await db("architecture_imports").insert({
+    source: options.source || SITE_IMPORT_SOURCE,
+    status: "completed",
+    imported_sites: counts.sitesCreated,
+    notes:
+      "Imported site metadata rows from Ignition dev_ignition.Sites. No BDD_Ignition write attempted.",
+    metadata: dbJson({
+      version: metadata.version,
+      sourceFile: options.sourceFile || null,
+      parsed: {
+        ...parsed.stats,
+        skipped: parsed.stats.skipped.slice(0, 20),
+      },
+      counts,
+    }),
+    created_at: db.fn.now(),
+  });
+
+  return {
+    success: true,
+    stats: parsed.stats,
+    counts,
+  };
+}
+
 module.exports = {
   ARCHITECTURE_EXPORT_PATH,
   METADATA_IMPORT_SOURCE,
   ROW_IMPORT_SOURCE,
+  SITE_IMPORT_SOURCE,
   bootstrapIgnitionArchitectureMetadata,
   classifyCreateTagRow,
   importCreateTagRows,
+  importSiteRows,
   normalizeArchitectureCode,
   normalizeCreateTagRow,
+  normalizeSiteRow,
   parseCreateTagRows,
   parseDelimitedText,
   parseRowsPayload,
+  parseSiteRows,
   previewCreateTagRows,
+  previewSiteRows,
   readCreateTagRowsFile,
   readArchitectureExportMetadata,
   recordIgnitionArchitectureMetadata,

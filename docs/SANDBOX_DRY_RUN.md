@@ -224,6 +224,12 @@ L'ecriture en base demande un opt-in explicite:
 npm run architecture:import -- --apply C:\path\to\create-tag-rows.json
 ```
 
+Pour inclure aussi les sites sans ligne `Create_Tag`:
+
+```powershell
+npm run architecture:import -- --apply --sites-file C:\path\to\sites.json C:\path\to\create-tag-rows.json
+```
+
 ## Catalogue de commandes
 
 Source versionnee:
@@ -284,6 +290,7 @@ Couverture ajoutee:
 - resume et timeline des runs de commandes.
 - import architecture Ignition metadata-only.
 - preview/import JSON/CSV/TSV des futures lignes `Create_Tag`.
+- import site-only pour les sites sans enfants architecture.
 
 Checks locaux recommandes avant push:
 

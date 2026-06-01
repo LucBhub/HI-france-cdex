@@ -1,10 +1,13 @@
 const {
   classifyCreateTagRow,
   importCreateTagRows,
+  importSiteRows,
   parseDelimitedText,
   parseCreateTagRows,
   parseRowsPayload,
+  parseSiteRows,
   previewCreateTagRows,
+  previewSiteRows,
   readArchitectureExportMetadata,
   recordIgnitionArchitectureMetadata,
 } = require("../../lib/ignition-architecture-import");
@@ -100,6 +103,23 @@ const createTagRows = [
   },
 ];
 
+const siteRows = [
+  {
+    idSite: 42,
+    Site: "Safari Sud",
+    Client: "REDEN",
+    Generation: "CRE4",
+    Lattitude: "43,5",
+    Longitude: "1.2",
+    Adresse: "Route test",
+    CE: "CE Ouest",
+    Puissance: "2500",
+    Agregateur: "AXPO",
+    Hyperviseur: "Oui",
+    id_Centrale: "P042",
+  },
+];
+
 describe("ignition architecture import", () => {
   test("reads versioned export metadata without data rows", () => {
     const metadata = readArchitectureExportMetadata();
@@ -155,6 +175,28 @@ describe("ignition architecture import", () => {
       },
     });
     expect(preview.samples.sites).toHaveLength(1);
+  });
+
+  test("parses and previews site metadata rows", () => {
+    const parsed = parseSiteRows(siteRows);
+    const preview = previewSiteRows(siteRows);
+
+    expect(parsed.stats).toMatchObject({
+      totalRows: 1,
+      skippedRows: 0,
+      siteCount: 1,
+    });
+    expect(preview.samples.sites[0]).toMatchObject({
+      site_code: "SAFARI_SUD",
+      latitude: 43.5,
+      longitude: 1.2,
+      address: "Route test",
+      raw_source: {
+        source: "ignition_site_rows",
+        idSite: 42,
+        idCentrale: "P042",
+      },
+    });
   });
 
   test("parses CSV, TSV and JSON row payloads", () => {
@@ -227,5 +269,29 @@ describe("ignition architecture import", () => {
       numero_onduleur: 3,
       ip_address: "10.0.0.3",
     });
+  });
+
+  test("imports standalone site rows for sites without Create_Tag children", async () => {
+    const db = makeDb();
+
+    await importSiteRows(db, siteRows);
+    await importSiteRows(db, siteRows);
+
+    expect(db.data.architecture_sites).toHaveLength(1);
+    expect(db.data.architecture_sites[0]).toMatchObject({
+      site_code: "SAFARI_SUD",
+      name: "Safari Sud",
+      latitude: 43.5,
+      longitude: 1.2,
+      address: "Route test",
+      ce: "CE Ouest",
+    });
+    expect(db.data.architecture_imports).toHaveLength(2);
+    expect(db.data.architecture_imports[0]).toMatchObject({
+      source: "ignition_site_rows",
+      status: "completed",
+      imported_sites: 1,
+    });
+    expect(db.data.architecture_imports[1].imported_sites).toBe(0);
   });
 });

@@ -10,7 +10,9 @@ require("dotenv").config({ path: envPath });
 const knex = require("../db/knex");
 const {
   importCreateTagRows,
+  importSiteRows,
   previewCreateTagRows,
+  previewSiteRows,
   readCreateTagRowsFile,
   recordIgnitionArchitectureMetadata,
 } = require("../lib/ignition-architecture-import");
@@ -19,16 +21,24 @@ function parseArgs(argv) {
   const args = {
     apply: false,
     metadataOnly: false,
+    sitesPath: null,
     rowsPath: null,
   };
 
-  for (const arg of argv) {
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
     if (arg === "--apply") {
       args.apply = true;
     } else if (arg === "--dry-run") {
       args.apply = false;
     } else if (arg === "--metadata-only") {
       args.metadataOnly = true;
+    } else if (arg === "--sites-file") {
+      args.sitesPath = argv[index + 1];
+      if (!args.sitesPath) {
+        throw new Error("--sites-file requires a path.");
+      }
+      index += 1;
     } else if (arg === "--help" || arg === "-h") {
       args.help = true;
     } else if (!args.rowsPath) {
@@ -46,6 +56,8 @@ function printHelp() {
   npm run architecture:import
   npm run architecture:import -- --metadata-only
   npm run architecture:import -- <rows.json|rows.csv|rows.tsv>
+  npm run architecture:import -- --sites-file <sites.json|sites.csv>
+  npm run architecture:import -- --sites-file <sites.json|sites.csv> <rows.json|rows.csv|rows.tsv>
   npm run architecture:import -- --apply <rows.json|rows.csv|rows.tsv>
 
 Default behavior with a rows file is preview/dry-run. Use --apply to write architecture_* rows.`);
@@ -59,7 +71,7 @@ async function main() {
     return;
   }
 
-  if (!args.rowsPath || args.metadataOnly) {
+  if ((!args.rowsPath && !args.sitesPath) || args.metadataOnly) {
     const result = await recordIgnitionArchitectureMetadata(knex);
     console.log(
       JSON.stringify(
@@ -75,16 +87,38 @@ async function main() {
     return;
   }
 
-  const { absolutePath, rows } = readCreateTagRowsFile(args.rowsPath);
+  const sitesInput = args.sitesPath
+    ? readCreateTagRowsFile(args.sitesPath)
+    : null;
+  const architectureInput = args.rowsPath
+    ? readCreateTagRowsFile(args.rowsPath)
+    : null;
 
   if (!args.apply) {
-    const preview = previewCreateTagRows(rows);
+    const sitePreview = sitesInput ? previewSiteRows(sitesInput.rows) : null;
+    const architecturePreview = architectureInput
+      ? previewCreateTagRows(architectureInput.rows)
+      : null;
     console.log(
       JSON.stringify(
         {
-          ...preview,
+          success: true,
+          dryRun: true,
           mode: "preview",
-          sourceFile: absolutePath,
+          sites: sitePreview
+            ? {
+                sourceFile: sitesInput.absolutePath,
+                stats: sitePreview.stats,
+                samples: sitePreview.samples,
+              }
+            : null,
+          architecture: architecturePreview
+            ? {
+                sourceFile: architectureInput.absolutePath,
+                stats: architecturePreview.stats,
+                samples: architecturePreview.samples,
+              }
+            : null,
           message:
             "Preview only. Re-run with --apply to write architecture rows.",
         },
@@ -95,15 +129,33 @@ async function main() {
     return;
   }
 
-  const result = await importCreateTagRows(knex, rows, {
-    sourceFile: absolutePath,
-  });
+  const siteResult = sitesInput
+    ? await importSiteRows(knex, sitesInput.rows, {
+        sourceFile: sitesInput.absolutePath,
+      })
+    : null;
+  const architectureResult = architectureInput
+    ? await importCreateTagRows(knex, architectureInput.rows, {
+        sourceFile: architectureInput.absolutePath,
+      })
+    : null;
   console.log(
     JSON.stringify(
       {
-        ...result,
+        success: true,
         mode: "apply",
-        sourceFile: absolutePath,
+        sites: siteResult
+          ? {
+              sourceFile: sitesInput.absolutePath,
+              ...siteResult,
+            }
+          : null,
+        architecture: architectureResult
+          ? {
+              sourceFile: architectureInput.absolutePath,
+              ...architectureResult,
+            }
+          : null,
       },
       null,
       2,

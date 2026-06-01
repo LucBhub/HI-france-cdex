@@ -92,6 +92,20 @@ npm run architecture:import -- C:\path\to\create-tag-rows.csv
 npm run architecture:import -- --apply C:\path\to\create-tag-rows.tsv
 ```
 
+Les sites issus de `dev_ignition.Sites` peuvent etre importes en metadata seule, utile pour les sites sans poste/equipement dans `Create_Tag`:
+
+```powershell
+cd backend
+npm run architecture:import -- --sites-file C:\path\to\sites.json
+npm run architecture:import -- --apply --sites-file C:\path\to\sites.json
+```
+
+Pour importer les sites puis l'architecture dans le meme passage:
+
+```powershell
+npm run architecture:import -- --apply --sites-file C:\path\to\sites.json C:\path\to\create-tag-rows.json
+```
+
 Formats acceptes:
 
 ```json
@@ -146,5 +160,6 @@ La couverture verifie:
 - classification cellule/equipement/onduleur;
 - parsing des lignes `Create_Tag`;
 - parsing JSON/CSV/TSV et preview dry-run;
+- import site-only pour les sites sans enfants `Create_Tag`;
 - import idempotent des entites;
 - import metadata-only sans creation d'entites enfants.
