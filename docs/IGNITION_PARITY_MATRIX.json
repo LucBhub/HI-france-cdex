@@ -1,0 +1,452 @@
+{
+  "updatedAt": "2026-06-01",
+  "source": "Audit Ignition France Hyperviseur_V3 and current repository state",
+  "safetyDefault": {
+    "commandMode": "dry_run",
+    "commandLiveEnabled": false,
+    "liveKillSwitch": true,
+    "productionBridge": false
+  },
+  "statusLegend": {
+    "done": "Covered in the repository and locally verifiable.",
+    "partial": "Base exists, but Ignition parity is incomplete or read-only.",
+    "missing": "Not implemented in the repository.",
+    "blocked": "Intentionally blocked by safety, access or field validation."
+  },
+  "entries": [
+    {
+      "id": "sandbox.runtime",
+      "domain": "Socle",
+      "priority": "P0",
+      "status": "done",
+      "ignitionSurface": "N/A",
+      "currentImplementation": [
+        ".env.example",
+        "docker-compose postgres/backend/frontend/mqtt-broker/mqtt-simulator",
+        "healthchecks",
+        "CI compose config"
+      ],
+      "targetCapability": "A developer can clone, configure from examples, start the sandbox and verify the dry-run stack.",
+      "nextMilestone": "Keep CI green and keep documented local test ports current.",
+      "dependencies": [],
+      "validation": [
+        "docker compose --env-file .env.example config",
+        "docker compose --env-file .env.example up -d postgres mqtt-broker backend mqtt-simulator"
+      ]
+    },
+    {
+      "id": "commands.live-safety",
+      "domain": "Commandes",
+      "priority": "P0",
+      "status": "done",
+      "ignitionSurface": "All command-writing Perspective views",
+      "currentImplementation": [
+        "COMMAND_LIVE_ENABLED=false by default",
+        "code-level live kill switch",
+        "live mode rejected by command API and legacy wrappers"
+      ],
+      "targetCapability": "No live command can be executed from this lot, even if environment variables are misconfigured.",
+      "nextMilestone": "Do not unlock live before command matrix field validation.",
+      "dependencies": [],
+      "validation": [
+        "POST /api/commands with mode live returns live_disabled",
+        "/health exposes liveEnabled=false and liveKillSwitch=true"
+      ]
+    },
+    {
+      "id": "commands.service-dry-run",
+      "domain": "Commandes",
+      "priority": "P0",
+      "status": "done",
+      "ignitionSurface": "Commande/Commande, CMD DEIE, Vue_Synoptique_Test, Onduleur, Agregateur",
+      "currentImplementation": [
+        "POST /api/commands",
+        "command_runs",
+        "sandbox_mqtt_events",
+        "audit_logs action COMMAND_DRY_RUN",
+        "Command Center UI"
+      ],
+      "targetCapability": "Every command path goes through one auditable backend service before any future live transport.",
+      "nextMilestone": "Add command-family target validators.",
+      "dependencies": [
+        "Validated command catalog"
+      ],
+      "validation": [
+        "dry-run creates a command run",
+        "MQTT event is published to sandbox",
+        "simulator ACK is attached to the run"
+      ]
+    },
+    {
+      "id": "commands.catalog",
+      "domain": "Commandes",
+      "priority": "P0",
+      "status": "partial",
+      "ignitionSurface": "Ignition command buttons and scripts",
+      "currentImplementation": [
+        "15 command keys",
+        "live_enabled=false",
+        "validation_status=inferred",
+        "versioned JSON catalog"
+      ],
+      "targetCapability": "A validated command matrix with exact label, target, transport, payload, pulse duration, risk and authorization conditions.",
+      "nextMilestone": "Review every command with operations/field owner.",
+      "dependencies": [
+        "Field validation",
+        "Read-only BDD_Ignition or sanitized export"
+      ],
+      "validation": [
+        "No catalog entry has live_enabled=true",
+        "Every catalog entry has validation_status=inferred until approved"
+      ]
+    },
+    {
+      "id": "architecture.model",
+      "domain": "Architecture",
+      "priority": "P1",
+      "status": "partial",
+      "ignitionSurface": "Architecture/Create_Tag and Configuration/Config",
+      "currentImplementation": [
+        "architecture_sites",
+        "architecture_postes",
+        "architecture_cellules",
+        "architecture_equipements",
+        "architecture_onduleurs",
+        "architecture_imports",
+        "row import and site-only import"
+      ],
+      "targetCapability": "A complete France architecture model independent from Ignition tags.",
+      "nextMilestone": "Consolidate full mapping and add business constraints.",
+      "dependencies": [
+        "Sanitized Create_Tag export",
+        "Validation of naming conventions"
+      ],
+      "validation": [
+        "GET /api/architecture/summary",
+        "GET /api/architecture/sites/:id/tree"
+      ]
+    },
+    {
+      "id": "architecture.france-data-sandbox",
+      "domain": "Architecture",
+      "priority": "P0",
+      "status": "done",
+      "ignitionSurface": "France exported architecture rows",
+      "currentImplementation": [
+        "ignored local exports under backups/ignition-exports",
+        "architecture:france:preview",
+        "architecture:france:load"
+      ],
+      "targetCapability": "Reload the local sandbox with France architecture data without committing raw exports.",
+      "nextMilestone": "Replace local files by sanitized repeatable fixture or read-only extraction job.",
+      "dependencies": [
+        "Sanitized export policy"
+      ],
+      "validation": [
+        "108 sites",
+        "220 postes",
+        "651 cellules",
+        "930 equipements",
+        "1198 onduleurs"
+      ]
+    },
+    {
+      "id": "architecture.dashboard",
+      "domain": "Architecture",
+      "priority": "P1",
+      "status": "partial",
+      "ignitionSurface": "Configuration/Config and site selection flows",
+      "currentImplementation": [
+        "Read-only /architecture page",
+        "site filters",
+        "site tree display"
+      ],
+      "targetCapability": "Operator-friendly France architecture navigation and inspection.",
+      "nextMilestone": "Add a site detail read-only page using the imported tree.",
+      "dependencies": [
+        "Architecture model"
+      ],
+      "validation": [
+        "Open /architecture",
+        "select a site",
+        "inspect postes/cellules/equipements/onduleurs"
+      ]
+    },
+    {
+      "id": "maps.test-maps",
+      "domain": "Cartographie",
+      "priority": "P1",
+      "status": "partial",
+      "ignitionSurface": "Test_Maps",
+      "currentImplementation": [
+        "Existing plant dashboard/map",
+        "plants data model"
+      ],
+      "targetCapability": "France map with Ignition-like navigation, alarm markers and site context.",
+      "nextMilestone": "Connect map to architecture sites and alarm status.",
+      "dependencies": [
+        "Architecture model",
+        "Alarm status model"
+      ],
+      "validation": [
+        "Map shows France imported sites",
+        "site click navigates to read-only site view"
+      ]
+    },
+    {
+      "id": "synoptic.read-only",
+      "domain": "Synoptique",
+      "priority": "P1",
+      "status": "missing",
+      "ignitionSurface": "Vue_Synoptique_Test and Vue_PTR",
+      "currentImplementation": [],
+      "targetCapability": "Read-only HTA/PTR synoptic built from architecture and normalized telemetry.",
+      "nextMilestone": "Build site France read-only view first, then synoptic layout.",
+      "dependencies": [
+        "Architecture model",
+        "Telemetry/tag mapping"
+      ],
+      "validation": [
+        "No command button active",
+        "unknown/simulated states are explicit"
+      ]
+    },
+    {
+      "id": "inverters.operator-view",
+      "domain": "Onduleurs",
+      "priority": "P1",
+      "status": "missing",
+      "ignitionSurface": "Vue_Onduleur and Onduleur/*",
+      "currentImplementation": [
+        "France onduleur rows imported"
+      ],
+      "targetCapability": "Read-only inverter list/detail with state, AC power and site/poste grouping.",
+      "nextMilestone": "Expose inverter read model from architecture tree.",
+      "dependencies": [
+        "Architecture model",
+        "Telemetry/tag mapping"
+      ],
+      "validation": [
+        "List imported inverters by site",
+        "show explicit telemetry status"
+      ]
+    },
+    {
+      "id": "telemetry.mapping",
+      "domain": "Telemetry",
+      "priority": "P1",
+      "status": "missing",
+      "ignitionSurface": "Ignition tags and MQTT Engine paths",
+      "currentImplementation": [
+        "Existing Modbus polling for legacy relay stack"
+      ],
+      "targetCapability": "Normalized telemetry points mapped to site/poste/cellule/equipement/onduleur.",
+      "nextMilestone": "Add telemetry point catalog and sandbox value simulator.",
+      "dependencies": [
+        "Validated tag/topic naming",
+        "Architecture model"
+      ],
+      "validation": [
+        "Read endpoint returns stable point identifiers",
+        "simulated values feed read-only views"
+      ]
+    },
+    {
+      "id": "conduite.alarms-tickets",
+      "domain": "Conduite",
+      "priority": "P2",
+      "status": "missing",
+      "ignitionSurface": "Conduite/ticketView, AlarmMaster, Alarms, AlarmReasons, tickets",
+      "currentImplementation": [],
+      "targetCapability": "Alarm/ticket board with filters, assignment, categorization and intervention status.",
+      "nextMilestone": "Create read-only schema and minimal board.",
+      "dependencies": [
+        "Sanitized alarm/ticket export",
+        "Role model"
+      ],
+      "validation": [
+        "Board loads without command capability",
+        "filters by site/category/status"
+      ]
+    },
+    {
+      "id": "reports.conduite",
+      "domain": "Rapports",
+      "priority": "P2",
+      "status": "missing",
+      "ignitionSurface": "Ignition reports",
+      "currentImplementation": [
+        "Existing basic reports/history in legacy stack"
+      ],
+      "targetCapability": "Replacement reports for conduite and event history.",
+      "nextMilestone": "Implement after conduite model is stable.",
+      "dependencies": [
+        "Conduite schema"
+      ],
+      "validation": [
+        "CSV/PDF export matches agreed fields"
+      ]
+    },
+    {
+      "id": "aggregator.market",
+      "domain": "Agregateur",
+      "priority": "P3",
+      "status": "missing",
+      "ignitionSurface": "Agregateur/View, market_price, market_price_streem",
+      "currentImplementation": [],
+      "targetCapability": "Market price ingestion, negative price detection, auto/manual mode and grouped plant status.",
+      "nextMilestone": "Model market prices in read-only mode before commands.",
+      "dependencies": [
+        "Market data source",
+        "Architecture site grouping"
+      ],
+      "validation": [
+        "Display market price timeline",
+        "no grouped stop command enabled"
+      ]
+    },
+    {
+      "id": "reactive.qu",
+      "domain": "Reactif",
+      "priority": "P3",
+      "status": "missing",
+      "ignitionSurface": "Vue_Reactif and Reactif table",
+      "currentImplementation": [],
+      "targetCapability": "Q(U) curves, setpoints, thresholds and history.",
+      "nextMilestone": "Import/read Reactif model and display curves.",
+      "dependencies": [
+        "Reactif source data",
+        "Telemetry mapping"
+      ],
+      "validation": [
+        "Read-only curve display",
+        "setpoint changes disabled"
+      ]
+    },
+    {
+      "id": "configuration.central-crud",
+      "domain": "Configuration",
+      "priority": "P3",
+      "status": "partial",
+      "ignitionSurface": "Configuration/Config",
+      "currentImplementation": [
+        "Architecture import",
+        "read-only architecture dashboard"
+      ],
+      "targetCapability": "Safe CRUD for site/poste/cellule/equipement/onduleur configuration.",
+      "nextMilestone": "Wait until the architecture model is validated, then add controlled edit workflows.",
+      "dependencies": [
+        "Validated architecture model",
+        "RBAC model",
+        "Audit model"
+      ],
+      "validation": [
+        "Every edit is audited",
+        "bulk destructive operations require explicit confirmation"
+      ]
+    },
+    {
+      "id": "security.command-rbac",
+      "domain": "Securite",
+      "priority": "P3",
+      "status": "partial",
+      "ignitionSurface": "All command surfaces",
+      "currentImplementation": [
+        "member/admin/superadmin can test dry-run",
+        "live blocked"
+      ],
+      "targetCapability": "Dedicated command roles and approvals before sensitive actions.",
+      "nextMilestone": "Add roles such as command_tester, command_operator and command_approver.",
+      "dependencies": [
+        "Business role matrix"
+      ],
+      "validation": [
+        "member cannot perform future live actions",
+        "approval flow is audited"
+      ]
+    },
+    {
+      "id": "commands.live",
+      "domain": "Commandes",
+      "priority": "P4",
+      "status": "blocked",
+      "ignitionSurface": "All live command transports",
+      "currentImplementation": [
+        "No live bridge",
+        "No production MQTT bridge",
+        "No live Modbus command through wrappers"
+      ],
+      "targetCapability": "Live command execution per command, per environment and per role after field validation.",
+      "nextMilestone": "Keep blocked until validation package is complete.",
+      "dependencies": [
+        "Validated command matrix",
+        "Production broker/ACL design",
+        "Operational approval",
+        "Rollback procedure"
+      ],
+      "validation": [
+        "live_disabled returned for any live request in this lot"
+      ]
+    }
+  ],
+  "recommendedLots": [
+    {
+      "lot": 4,
+      "name": "Vue site France read-only",
+      "objective": "Turn imported France architecture data into an operator-friendly site view without commands.",
+      "status": "recommended_next",
+      "dependsOn": [
+        "architecture.model",
+        "architecture.france-data-sandbox"
+      ]
+    },
+    {
+      "lot": 5,
+      "name": "Telemetry/tag mapping sandbox",
+      "objective": "Define normalized read points and feed views with simulated values.",
+      "status": "planned",
+      "dependsOn": [
+        "architecture.model"
+      ]
+    },
+    {
+      "lot": 6,
+      "name": "Synoptique France read-only",
+      "objective": "Rebuild the main site synoptic without command buttons.",
+      "status": "planned",
+      "dependsOn": [
+        "architecture.model",
+        "telemetry.mapping"
+      ]
+    },
+    {
+      "lot": 7,
+      "name": "Conduite alarms read-only",
+      "objective": "Start parity with Conduite/ticketView using a safe read-only alarm/ticket model.",
+      "status": "planned",
+      "dependsOn": [
+        "conduite.alarms-tickets"
+      ]
+    },
+    {
+      "lot": 8,
+      "name": "Commandes controlees v2",
+      "objective": "Harden command validations, RBAC, confirmation and idempotency before any live discussion.",
+      "status": "planned",
+      "dependsOn": [
+        "commands.catalog",
+        "security.command-rbac"
+      ]
+    },
+    {
+      "lot": 9,
+      "name": "Modules metier avance",
+      "objective": "Implement aggregator, reactive, central configuration and reports after read-only foundations.",
+      "status": "planned",
+      "dependsOn": [
+        "telemetry.mapping",
+        "conduite.alarms-tickets"
+      ]
+    }
+  ]
+}

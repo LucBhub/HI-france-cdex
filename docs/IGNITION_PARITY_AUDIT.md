@@ -7,6 +7,11 @@ Sources inspectees:
 - Export Ignition: `C:\Users\l.boillat\Downloads\Hyperviseur_V3_2026-06-01_1028.zip`
 - Projet exporte: `Hyperviseur_V3`
 
+Livrables de suivi:
+- Matrice de parite pilotable: `docs/IGNITION_PARITY_MATRIX.md`
+- Version machine-readable: `docs/IGNITION_PARITY_MATRIX.json`
+- Matrice commandes dediee: `docs/IGNITION_COMMAND_MATRIX.md`
+
 Note de securite:
 - Aucune commande live terrain n'a ete declenchee.
 - Les identifiants fournis oralement ne doivent pas etre stockes dans le repo, ni utilises en ligne de commande.
@@ -119,6 +124,8 @@ Limites actuelles par rapport a Ignition:
 - Les endpoints de commande acceptent encore `member` pour des actions sensibles.
 
 ## Matrice de parite priorisee
+
+La liste ci-dessous est l'audit initial. Le suivi operationnel a jour est maintenu dans `docs/IGNITION_PARITY_MATRIX.md`, avec les statuts `done`, `partial`, `missing` et `blocked`.
 
 P0 - securite et socle:
 - Externaliser tous les secrets du repo et de l'export.

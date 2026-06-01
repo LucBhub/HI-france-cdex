@@ -34,6 +34,7 @@ Read the operational guide before testing commands:
 - `docs/IGNITION_COMMAND_MATRIX.md`
 - `docs/IGNITION_ARCHITECTURE_IMPORT.md`
 - `docs/IGNITION_PARITY_AUDIT.md`
+- `docs/IGNITION_PARITY_MATRIX.md`
 
 Important safety default:
 
@@ -76,6 +77,8 @@ When the ignored France extracts exist under `backups/ignition-exports`, the loc
 npm run architecture:france:preview
 npm run architecture:france:load
 ```
+
+To track what remains before full Ignition France parity, use `docs/IGNITION_PARITY_MATRIX.md`. It separates done, partial, missing and blocked capabilities, and proposes the next development lots.
 
 ## Environnements
 

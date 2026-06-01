@@ -126,6 +126,12 @@ Interface read-only:
 - `/architecture`: vue de controle des sites importes, compteurs globaux, filtres et arbre site/postes/cellules/equipements/onduleurs. Elle n'ajoute aucune commande live et consomme uniquement les routes Architecture ci-dessus.
 - `/commands`: Command Center dry-run pour parcourir le catalogue, preparer une cible JSON, lancer `POST /api/commands` en simulation et suivre les runs MQTT/ACK.
 
+Suivi parite Ignition:
+
+- `docs/IGNITION_PARITY_AUDIT.md`: photographie de ce qui a ete observe dans l'export Ignition.
+- `docs/IGNITION_PARITY_MATRIX.md`: statut actuel du repo et backlog des prochains lots.
+- `docs/IGNITION_PARITY_MATRIX.json`: meme suivi en format structure.
+
 Wrappers legacy relais:
 
 - `POST /api/plants/:plantId/relays/:relayId/control`
