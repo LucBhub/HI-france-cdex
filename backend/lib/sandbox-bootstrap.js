@@ -5,6 +5,9 @@ const CATALOG_PATH = path.join(
   __dirname,
   "../data/ignition-command-catalog.json",
 );
+const {
+  bootstrapIgnitionArchitectureMetadata,
+} = require("./ignition-architecture-import");
 
 function normalizeSiteCode(name) {
   return String(name || "")
@@ -127,14 +130,16 @@ async function backfillArchitectureSites(knex) {
 async function bootstrapSandboxData(knex) {
   const commandCount = await seedCommandCatalog(knex);
   const siteCount = await backfillArchitectureSites(knex);
+  const architectureMetadata = await bootstrapIgnitionArchitectureMetadata(knex);
   console.log(
-    `[Bootstrap] Command catalog synced (${commandCount}); architecture sites backfilled (${siteCount}).`,
+    `[Bootstrap] Command catalog synced (${commandCount}); architecture sites backfilled (${siteCount}); Ignition architecture metadata ${architectureMetadata.created ? "recorded" : "synced"}.`,
   );
 }
 
 module.exports = {
   backfillArchitectureSites,
   bootstrapSandboxData,
+  bootstrapIgnitionArchitectureMetadata,
   normalizeSiteCode,
   parseGps,
   readCatalog,

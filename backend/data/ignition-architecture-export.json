@@ -1,0 +1,142 @@
+{
+  "version": "2026-06-01_1028",
+  "sourceExport": "Hyperviseur_V3_2026-06-01_1028.zip",
+  "validationStatus": "inferred",
+  "containsDataRows": false,
+  "canonicalNamedQuery": "Architecture/Create_Tag",
+  "canonicalColumns": [
+    "Site",
+    "type_poste",
+    "Agregateur",
+    "Equipement",
+    "Ordre_Cellule",
+    "Nom_Onduleur",
+    "Num_Onduleur",
+    "Adresse_Ip",
+    "Client",
+    "Hyperviseur"
+  ],
+  "sourceTables": [
+    "dev_ignition.Sites",
+    "dev_ignition.Clients",
+    "dev_ignition.lien_Sites_type_postes",
+    "dev_ignition.type_postes",
+    "dev_ignition.lienSites_postes_equipements",
+    "dev_ignition.Equipements",
+    "dev_ignition.lien_sites_typepostes_cellules",
+    "dev_ignition.Cellules",
+    "dev_ignition.lienSites_postes_onduleurs",
+    "dev_ignition.Onduleurs",
+    "dev_ignition.Maps_Hyperviseur"
+  ],
+  "entityRules": [
+    {
+      "entity": "site",
+      "source": "Site",
+      "targetTable": "architecture_sites",
+      "identity": ["site_code"],
+      "notes": "The ZIP export contains the query definition only; site rows still come from plants backfill until dev_ignition rows are supplied."
+    },
+    {
+      "entity": "poste",
+      "source": "type_poste",
+      "targetTable": "architecture_postes",
+      "identity": ["site_id", "poste_code"]
+    },
+    {
+      "entity": "cellule",
+      "source": "Equipement plus Ordre_Cellule",
+      "targetTable": "architecture_cellules",
+      "identity": ["poste_id", "cellule_code"],
+      "condition": "Ordre_Cellule is present or Equipement looks like a Cellule label."
+    },
+    {
+      "entity": "equipement",
+      "source": "Equipement",
+      "targetTable": "architecture_equipements",
+      "identity": ["poste_id", "equipement_code"],
+      "condition": "Default non-cellule, non-onduleur row."
+    },
+    {
+      "entity": "onduleur",
+      "source": "Nom_Onduleur, Num_Onduleur, Adresse_Ip",
+      "targetTable": "architecture_onduleurs",
+      "identity": ["poste_id", "onduleur_code"],
+      "condition": "Nom_Onduleur or Num_Onduleur is present, or Equipement contains Onduleur."
+    }
+  ],
+  "namedQueries": [
+    {
+      "key": "Architecture/Create_Tag",
+      "path": "ignition/named-query/Architecture/Create_Tag/query.sql",
+      "purpose": "Canonical architecture/tag generation query used by Perspective session custom.Architecture and Create_tag_V3.",
+      "sql": "SELECT Site, type_poste, Agregateur, Equipement, NULL AS Ordre_Cellule, NULL AS Nom_Onduleur, NULL AS Num_Onduleur, NULL AS Adresse_Ip, Client, Hyperviseur FROM dev_ignition.Sites INNER JOIN dev_ignition.Clients ON id_Client=idClient INNER JOIN dev_ignition.lien_Sites_type_postes ON id_Sites = idSite INNER JOIN dev_ignition.type_postes ON idtype_poste = id_type_postes INNER JOIN dev_ignition.lienSites_postes_equipements ON id_Site_poste = idlien_Sites_type_postes INNER JOIN dev_ignition.Equipements ON idEquipements = id_equipement UNION ALL SELECT Site, type_poste, Agregateur, Cellule AS Equipement, ordre_cellule AS Ordre_Cellule, NULL AS Nom_Onduleur, NULL AS Num_Onduleur, NULL AS Adresse_Ip, Client, Hyperviseur FROM dev_ignition.Sites INNER JOIN dev_ignition.Clients ON id_Client=idClient INNER JOIN dev_ignition.lien_Sites_type_postes ON id_Sites = idSite INNER JOIN dev_ignition.type_postes ON idtype_poste = id_type_postes INNER JOIN dev_ignition.lien_sites_typepostes_cellules ON id_lien_sites_typepostes = idlien_Sites_type_postes INNER JOIN dev_ignition.Cellules ON idCellules = id_cellule UNION ALL SELECT Site, type_poste, Agregateur, 'Onduleur' AS Equipement, NULL AS Equipement, Onduleur AS Nom_Onduleur, numero_onduleur AS Num_Onduleur, Adresse_ip AS Adresse_Ip, Client, Hyperviseur FROM dev_ignition.Sites INNER JOIN dev_ignition.Clients ON id_Client=idClient INNER JOIN dev_ignition.lien_Sites_type_postes ON id_Sites = idSite INNER JOIN dev_ignition.type_postes ON idtype_poste = id_type_postes INNER JOIN dev_ignition.lienSites_postes_onduleurs ON id_Site_poste = idlien_Sites_type_postes INNER JOIN dev_ignition.Onduleurs ON idOnduleurs = id_onduleurs ORDER BY Site, type_poste;"
+    },
+    {
+      "key": "Architecture/SELECT_SITES",
+      "path": "ignition/named-query/Architecture/SELECT_SITES/query.sql",
+      "purpose": "Lists Ignition sites.",
+      "sql": "SELECT Site FROM dev_ignition.Sites"
+    },
+    {
+      "key": "Architecture/SELECT_POSTES_BY_SITE_NAME",
+      "path": "ignition/named-query/Architecture/SELECT_POSTES_BY_SITE_NAME/query.sql",
+      "purpose": "Lists postes for one site.",
+      "sql": "SELECT type_poste FROM dev_ignition.Sites INNER JOIN dev_ignition.lien_Sites_type_postes ON id_Sites = idSite INNER JOIN dev_ignition.type_postes ON idtype_poste = id_type_postes WHERE Site = :id_Site"
+    },
+    {
+      "key": "Architecture/SELECT_CELLULE_BY_ID_SITE_POSTE",
+      "path": "ignition/named-query/Architecture/SELECT_CELLULE_BY_ID_SITE_POSTE/query.sql",
+      "purpose": "Lists cellules and order for one site/poste link.",
+      "sql": "SELECT Cellule, ordre_cellule FROM dev_ignition.Cellules INNER JOIN dev_ignition.lien_sites_typepostes_cellules ON id_cellule = idCellules INNER JOIN dev_ignition.lien_Sites_type_postes ON idlien_Sites_type_postes = id_lien_sites_typepostes WHERE id_lien_sites_typepostes = :ID_LIEN_SITE_POSTE"
+    },
+    {
+      "key": "Architecture/SELECT_EQUIPEMENT_BY_ID_SITE_POSTE",
+      "path": "ignition/named-query/Architecture/SELECT_EQUIPEMENT_BY_ID_SITE_POSTE/query.sql",
+      "purpose": "Lists equipment for one site/poste link.",
+      "sql": "SELECT Equipement FROM dev_ignition.Equipements INNER JOIN dev_ignition.lienSites_postes_equipements ON id_equipement = idEquipements INNER JOIN dev_ignition.lien_Sites_type_postes ON idlien_Sites_type_postes = id_Site_poste WHERE id_Site_poste = :ID_LIEN_SITE_POSTE"
+    },
+    {
+      "key": "Architecture/SELECT_ONDULEURS_BY_ID_TYPES_POSTE",
+      "path": "ignition/named-query/Architecture/SELECT_ONDULEURS_BY_ID_TYPES_POSTE/query.sql",
+      "purpose": "Lists inverter type/name and number for one site/poste link.",
+      "sql": "SELECT Onduleur, numero_onduleur FROM dev_ignition.Onduleurs INNER JOIN dev_ignition.lienSites_postes_onduleurs ON id_onduleurs = idOnduleurs INNER JOIN dev_ignition.lien_Sites_type_postes ON idlien_Sites_type_postes = id_Site_poste WHERE id_Site_poste = :ID_LIEN_SITE_POSTE"
+    },
+    {
+      "key": "Architecture/SELECT_IP_ONDULEURS_BY_ID_TYPES_POSTE",
+      "path": "ignition/named-query/Architecture/SELECT_IP_ONDULEURS_BY_ID_TYPES_POSTE/query.sql",
+      "purpose": "Lists inverter IP addresses for one site/poste link.",
+      "sql": "SELECT Adresse_ip FROM dev_ignition.Onduleurs INNER JOIN dev_ignition.lienSites_postes_onduleurs ON id_onduleurs = idOnduleurs INNER JOIN dev_ignition.lien_Sites_type_postes ON idlien_Sites_type_postes = id_Site_poste WHERE id_Site_poste = :ID_LIEN_SITE_POSTE"
+    },
+    {
+      "key": "Architecture/Information_Maps",
+      "path": "ignition/named-query/Architecture/Information_Maps/query.sql",
+      "purpose": "Maps site coordinates and hypervisor flag.",
+      "sql": "SELECT Site, Lattitude, Longitude, Hyperviseur FROM dev_ignition.Sites"
+    },
+    {
+      "key": "Architecture/Maps_Marker",
+      "path": "ignition/named-query/Architecture/Maps_Marker/query.sql",
+      "purpose": "Reads Ignition map marker rows.",
+      "sql": "SELECT * FROM dev_ignition.Maps_Hyperviseur"
+    }
+  ],
+  "perspectiveTransforms": [
+    {
+      "path": "com.inductiveautomation.perspective/session-props/props.json",
+      "binding": "session.custom.Architecture",
+      "sourceNamedQuery": "Architecture/Create_Tag",
+      "summary": "Builds archi[Site][type_poste] with CELLULES and ONDULEURS arrays, appending equipements from Create_Tag rows."
+    },
+    {
+      "path": "ignition/script-python/Create_tag_V3/code.py",
+      "sourceNamedQuery": "Architecture/Create_Tag",
+      "summary": "Creates Ignition tags under [default]/Site/type_poste folders for equipements, cellules and onduleurs."
+    }
+  ],
+  "notes": [
+    "This file is metadata extracted from the Ignition project export, not a dump from dev_ignition.",
+    "Do not connect to BDD_Ignition in this lot.",
+    "The third UNION branch in Create_Tag has a duplicate alias around Equipement in the export; importer classification uses Nom_Onduleur and Num_Onduleur to avoid relying on that ambiguous alias."
+  ]
+}

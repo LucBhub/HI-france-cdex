@@ -7,6 +7,7 @@
     "start": "node index.js",
     "poll": "node polling-service.js",
     "mqtt:simulator": "node mqtt-simulator.js",
+    "architecture:import": "node scripts/import-ignition-architecture.js",
     "test": "jest --testEnvironment node --passWithNoTests",
     "test:watch": "jest --watch --testEnvironment node"
   },

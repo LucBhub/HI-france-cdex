@@ -20,6 +20,7 @@ This branch includes the first migration foundation for the France Ignition hype
 
 - Architecture tables for sites, postes, cellules, equipements and onduleurs.
 - A versioned Ignition command catalog in `backend/data/ignition-command-catalog.json`.
+- A versioned Ignition architecture metadata file in `backend/data/ignition-architecture-export.json` with a safe metadata-only import.
 - A dry-run `command_service` exposed through `/api/commands`.
 - Command run observability with summaries and timelines on `/api/commands/runs/:id/status`.
 - Legacy relay command wrappers that stay in dry-run while `COMMAND_LIVE_ENABLED=false`.
@@ -29,6 +30,7 @@ Read the operational guide before testing commands:
 
 - `docs/SANDBOX_DRY_RUN.md`
 - `docs/IGNITION_COMMAND_MATRIX.md`
+- `docs/IGNITION_ARCHITECTURE_IMPORT.md`
 - `docs/IGNITION_PARITY_AUDIT.md`
 
 Important safety default:
@@ -55,6 +57,8 @@ docker compose --env-file .env up -d postgres mqtt-broker backend mqtt-simulator
 The command runtime has a code-level dry-run kill switch in this lot: command APIs and legacy relay wrappers do not execute live Modbus commands even if `COMMAND_LIVE_ENABLED=true` is set by mistake. `/health` exposes the public command runtime status so this can be checked quickly.
 
 CI validates npm audit, backend tests, frontend typecheck/build, Compose configuration and a current-tree secret scan on `main` and `codex/**` branches.
+
+The Ignition architecture ZIP is not a database dump. The sandbox records the extracted mapping as `metadata_only` and continues to backfill only known sites from `plants` until real `Architecture/Create_Tag` rows are supplied.
 
 ## Environnements
 

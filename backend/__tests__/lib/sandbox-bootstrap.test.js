@@ -1,5 +1,6 @@
 const {
   backfillArchitectureSites,
+  bootstrapIgnitionArchitectureMetadata,
   normalizeSiteCode,
   parseGps,
   readCatalog,
@@ -92,5 +93,19 @@ describe("sandbox bootstrap", () => {
     expect(db.data.architecture_sites).toHaveLength(1);
     expect(db.data.architecture_sites[0].site_code).toBe("CARPENTRAS");
     expect(db.data.architecture_imports[0].source).toBe("plants_backfill");
+  });
+
+  test("records Ignition architecture metadata without inventing child entities", async () => {
+    const db = makeDb();
+
+    await bootstrapIgnitionArchitectureMetadata(db);
+    await bootstrapIgnitionArchitectureMetadata(db);
+
+    expect(db.data.architecture_imports).toHaveLength(1);
+    expect(db.data.architecture_imports[0]).toMatchObject({
+      source: "ignition_export_architecture_metadata",
+      status: "metadata_only",
+      imported_sites: 0,
+    });
   });
 });

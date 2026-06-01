@@ -67,6 +67,7 @@ Le premier lot France ajoute un socle sans commande live:
 
 - `docs/SANDBOX_DRY_RUN.md`: demarrage, variables, endpoints et tests du sandbox.
 - `docs/IGNITION_COMMAND_MATRIX.md`: matrice initiale des commandes extraites de l'export Ignition.
+- `docs/IGNITION_ARCHITECTURE_IMPORT.md`: mapping architecture extrait du ZIP Ignition, avec import metadata-only.
 - `docs/IGNITION_PARITY_AUDIT.md`: audit de parite Ignition France vs application web.
 
 Les commandes terrain restent bloquees par defaut avec:

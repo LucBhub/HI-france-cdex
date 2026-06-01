@@ -5,6 +5,23 @@ const authMiddleware = require("../middleware/auth");
 const router = express.Router();
 const allowedRoles = ["member", "admin", "superadmin"];
 
+router.get("/imports", authMiddleware(allowedRoles), async (req, res) => {
+  try {
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const imports = await knex("architecture_imports")
+      .orderBy("created_at", "desc")
+      .limit(limit);
+
+    res.json({ success: true, imports });
+  } catch (error) {
+    console.error("[Architecture] Failed to list imports:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to list architecture imports.",
+    });
+  }
+});
+
 router.get("/sites", authMiddleware(allowedRoles), async (req, res) => {
   try {
     const sites = await knex("architecture_sites")

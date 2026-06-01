@@ -100,6 +100,7 @@ Architecture:
 
 - `GET /api/architecture/sites`
 - `GET /api/architecture/sites/:id/tree`
+- `GET /api/architecture/imports`
 
 Wrappers legacy relais:
 
@@ -202,6 +203,14 @@ Commandes:
 
 Le backfill initial remplit seulement `architecture_sites` depuis `plants`. Aucun poste, cellule, equipement ou onduleur n'est invente.
 
+Une metadata d'architecture extraite de l'export Ignition France est aussi enregistree en `metadata_only`:
+
+- source versionnee: `backend/data/ignition-architecture-export.json`
+- route de verification: `GET /api/architecture/imports`
+- documentation: `docs/IGNITION_ARCHITECTURE_IMPORT.md`
+
+Cette metadata decrit la query `Architecture/Create_Tag` et ses mappings, mais ne contient pas les lignes reelles `dev_ignition`. Elle ne cree donc pas de postes, cellules, equipements ou onduleurs.
+
 ## Catalogue de commandes
 
 Source versionnee:
@@ -260,6 +269,7 @@ Couverture ajoutee:
 - wrappers relais sans Modbus.
 - correlation ACK simulateur.
 - resume et timeline des runs de commandes.
+- import architecture Ignition metadata-only.
 
 Checks locaux recommandes avant push:
 
