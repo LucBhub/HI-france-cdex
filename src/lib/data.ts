@@ -25,6 +25,16 @@ export type Relay = {
 
 export type Plant = {
   id: number;
+  source?: "legacy_modbus" | "france_ignition";
+  architectureSiteId?: number;
+  siteCode?: string;
+  client?: string | null;
+  posteCount?: number;
+  celluleCount?: number;
+  equipementCount?: number;
+  onduleurCount?: number;
+  hasArchitecture?: boolean;
+  telemetryStatus?: "legacy_polling" | "not_connected" | "simulated";
   name: string;
   status: "operational" | "maintenance" | "offline";
   powerOutput: number; // current apparent power in kW

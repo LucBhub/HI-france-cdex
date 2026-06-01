@@ -159,10 +159,11 @@
       "currentImplementation": [
         "Read-only /architecture page",
         "site filters",
-        "site tree display"
+        "site tree display",
+        "read-only France site detail through /plant/-<id>"
       ],
       "targetCapability": "Operator-friendly France architecture navigation and inspection.",
-      "nextMilestone": "Add a site detail read-only page using the imported tree.",
+      "nextMilestone": "Add normalized telemetry states to the France site detail.",
       "dependencies": [
         "Architecture model"
       ],
@@ -180,10 +181,12 @@
       "ignitionSurface": "Test_Maps",
       "currentImplementation": [
         "Existing plant dashboard/map",
-        "plants data model"
+        "plants data model",
+        "hybrid dashboard adapter for legacy Modbus plants and France Ignition sites",
+        "search and map route France sites to negative UI ids"
       ],
       "targetCapability": "France map with Ignition-like navigation, alarm markers and site context.",
-      "nextMilestone": "Connect map to architecture sites and alarm status.",
+      "nextMilestone": "Connect alarm status and Ignition-like filters.",
       "dependencies": [
         "Architecture model",
         "Alarm status model"
@@ -197,11 +200,14 @@
       "id": "synoptic.read-only",
       "domain": "Synoptique",
       "priority": "P1",
-      "status": "missing",
+      "status": "partial",
       "ignitionSurface": "Vue_Synoptique_Test and Vue_PTR",
-      "currentImplementation": [],
+      "currentImplementation": [
+        "read-only site architecture view in the existing /plant/[id] flow",
+        "postes/cellules/equipements/onduleurs displayed without commands"
+      ],
       "targetCapability": "Read-only HTA/PTR synoptic built from architecture and normalized telemetry.",
-      "nextMilestone": "Build site France read-only view first, then synoptic layout.",
+      "nextMilestone": "Add graphical synoptic layout and telemetry sandbox values.",
       "dependencies": [
         "Architecture model",
         "Telemetry/tag mapping"
@@ -394,7 +400,7 @@
       "lot": 4,
       "name": "Vue site France read-only",
       "objective": "Turn imported France architecture data into an operator-friendly site view without commands.",
-      "status": "recommended_next",
+      "status": "implemented_base",
       "dependsOn": [
         "architecture.model",
         "architecture.france-data-sandbox"

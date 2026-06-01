@@ -5,10 +5,16 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Header } from "@/components/layout/header";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useParams, notFound } from "next/navigation";
-import { fetchPlantById, fetchPlants } from "@/lib/api";
+import {
+  fetchArchitectureSiteTree,
+  fetchDashboardPlants,
+  fetchPlantById,
+  type ArchitectureTreeSite,
+} from "@/lib/api";
 import { type Plant } from "@/lib/data";
 
 import { GeneralInfoCard } from "@/components/plant/general-info-card";
+import { FranceSiteReadOnlyView } from "@/components/plant/france-site-readonly-view";
 import { ThytronicRelayCard } from "@/components/plant/thytronic-relay-card";
 import { PowerControlCard } from "@/components/plant/power-control-card";
 import { PlantMapCard } from "@/components/plant/plant-map-card";
@@ -21,17 +27,39 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function PlantPage() {
   const params = useParams();
-  const id = params.id;
-  const plantId = parseInt(id as string);
+  const routeId = String(params.id || "");
+  const plantId = Number(routeId);
+  const isFranceSite = Number.isInteger(plantId) && plantId < 0;
+  const architectureSiteId = isFranceSite ? Math.abs(plantId) : null;
   const { language } = useLanguage();
 
   const [plant, setPlant] = useState<Plant | null | undefined>(undefined);
+  const [franceSite, setFranceSite] = useState<
+    ArchitectureTreeSite | null | undefined
+  >(undefined);
   const [allPlants, setAllPlants] = useState<Plant[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isNaN(plantId)) {
+    let isMounted = true;
+
+    fetchDashboardPlants()
+      .then((plants) => {
+        if (isMounted) setAllPlants(plants);
+      })
+      .catch((error) => {
+        console.error("Failed to load dashboard sites:", error);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!Number.isInteger(plantId) || plantId === 0) {
       setPlant(null);
+      setFranceSite(null);
       setLoading(false);
       return;
     }
@@ -39,19 +67,37 @@ function PlantPage() {
     let isMounted = true;
     let intervalId: ReturnType<typeof setInterval> | undefined;
 
+    if (isFranceSite) {
+      setLoading(true);
+      setPlant(undefined);
+      fetchArchitectureSiteTree(architectureSiteId!)
+        .then((site) => {
+          if (!isMounted) return;
+          setFranceSite(site);
+          setLoading(false);
+        })
+        .catch((error) => {
+          if (!isMounted) return;
+          console.error(`Failed to load France site ${architectureSiteId}:`, error);
+          setFranceSite(null);
+          setLoading(false);
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }
+
     const loadData = async () => {
       try {
-        const [plantData, allPlantsData] = await Promise.all([
-          fetchPlantById(plantId),
-          fetchPlants(),
-        ]);
+        const plantData = await fetchPlantById(plantId);
 
         if (!isMounted) {
           return;
         }
 
         setPlant(plantData);
-        setAllPlants(allPlantsData);
+        setFranceSite(undefined);
         setLoading(false);
       } catch (error) {
         if (isMounted) {
@@ -81,6 +127,38 @@ function PlantPage() {
             <main className="flex-1 p-8">
               <Skeleton className="w-full h-64" />
             </main>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    );
+  }
+
+  if (isFranceSite) {
+    if (!franceSite) {
+      notFound();
+    }
+
+    return (
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <div className="flex flex-col h-screen bg-muted/40">
+            <Header solarPlants={allPlants} />
+            <Tabs defaultValue="synoptic" className="w-full">
+              <div className="px-4 md:px-6 lg:px-8">
+                <TabsList className="grid w-full grid-cols-1 max-w-[220px]">
+                  <TabsTrigger value="synoptic">
+                    {t("synoptic", language)}
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 space-y-6">
+                <TabsContent value="synoptic" className="space-y-6 mt-0">
+                  <FranceSiteReadOnlyView site={franceSite} />
+                </TabsContent>
+              </main>
+            </Tabs>
           </div>
         </SidebarInset>
       </SidebarProvider>

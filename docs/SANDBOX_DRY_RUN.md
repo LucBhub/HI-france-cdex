@@ -124,6 +124,8 @@ Architecture:
 Interface read-only:
 
 - `/architecture`: vue de controle des sites importes, compteurs globaux, filtres et arbre site/postes/cellules/equipements/onduleurs. Elle n'ajoute aucune commande live et consomme uniquement les routes Architecture ci-dessus.
+- `/`: carte hybride avec centrales legacy Modbus et sites France Ignition importes. Les centrales legacy gardent leurs ids `plants` positifs et le polling service existant; les sites France utilisent des ids UI negatifs.
+- `/plant/<id>`: conserve la page centrale legacy pour les ids positifs, et affiche une fiche site France read-only pour les ids negatifs.
 - `/commands`: Command Center dry-run pour parcourir le catalogue, preparer une cible JSON, lancer `POST /api/commands` en simulation et suivre les runs MQTT/ACK.
 
 Suivi parite Ignition:

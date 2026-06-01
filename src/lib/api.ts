@@ -83,6 +83,91 @@ export interface ArchitectureSummary {
   sitesByClient: Array<{ client: string; count: number }>;
 }
 
+function parseRawSource(rawSource: ArchitectureSite["raw_source"]) {
+  if (!rawSource) return {};
+  if (typeof rawSource === "string") {
+    try {
+      return JSON.parse(rawSource) as Record<string, unknown>;
+    } catch (_error) {
+      return {};
+    }
+  }
+  return rawSource;
+}
+
+function numericRawValue(
+  rawSource: Record<string, unknown>,
+  keys: string[],
+): number {
+  for (const key of keys) {
+    const value = rawSource[key];
+    const numberValue = Number(value);
+    if (Number.isFinite(numberValue)) return numberValue;
+  }
+  return 0;
+}
+
+function architectureSiteToDashboardPlant(site: ArchitectureSite): Plant {
+  const rawSource = parseRawSource(site.raw_source);
+  const latitude = Number(site.latitude);
+  const longitude = Number(site.longitude);
+  const gps =
+    Number.isFinite(latitude) && Number.isFinite(longitude)
+      ? `${latitude},${longitude}`
+      : "";
+
+  return {
+    id: -site.id,
+    source: "france_ignition",
+    architectureSiteId: site.id,
+    siteCode: site.site_code,
+    client: site.client,
+    posteCount: site.poste_count || 0,
+    celluleCount: site.cellule_count || 0,
+    equipementCount: site.equipement_count || 0,
+    onduleurCount: site.onduleur_count || 0,
+    hasArchitecture: Boolean(site.has_architecture),
+    telemetryStatus: "not_connected",
+    name: site.name || site.site_code,
+    status: site.has_architecture ? "maintenance" : "offline",
+    powerOutput: 0,
+    ce: site.ce || "",
+    address: site.address || "",
+    gps,
+    powerKwc: numericRawValue(rawSource, [
+      "powerKwc",
+      "puissanceKwc",
+      "puissance",
+      "Puissance",
+    ]),
+    modemLogin: "",
+    modemPassword: "",
+    acrMerignac: "",
+    deliveryStation: site.site_code,
+    departureStation: "",
+    sourceStation: "",
+    card1: "",
+    email: "",
+    relays: [],
+    totalEnergy: 0,
+    frequency: 0,
+    currentL1: 0,
+    currentL2: 0,
+    currentL3: 0,
+    voltageU12: 0,
+    voltageU23: 0,
+    voltageU31: 0,
+  };
+}
+
+function legacyPlantToDashboardPlant(plant: Plant): Plant {
+  return {
+    ...plant,
+    source: "legacy_modbus",
+    telemetryStatus: "legacy_polling",
+  };
+}
+
 export interface CommandTemplate {
   requiredTarget?: string[];
   requiredParams?: string[];
@@ -337,6 +422,19 @@ export async function fetchPlants(): Promise<Plant[]> {
     console.error("[API Error] fetchPlants:", error);
     return []; // Return empty array on error to prevent crashes
   }
+}
+
+export async function fetchDashboardPlants(): Promise<Plant[]> {
+  const [legacyPlants, architectureSites] = await Promise.all([
+    fetchPlants(),
+    fetchArchitectureSites(),
+  ]);
+
+  const francePlants = architectureSites
+    .filter((site) => !site.legacy_plant_id)
+    .map(architectureSiteToDashboardPlant);
+
+  return [...legacyPlants.map(legacyPlantToDashboardPlant), ...francePlants];
 }
 
 export async function fetchPlantById(id: number): Promise<Plant | undefined> {

@@ -38,6 +38,12 @@ export default function Map({ solarPlants }: MapProps) {
 
   // Get color and status for a plant
   const getPlantStatus = (plant: Plant) => {
+    if (plant.source === "france_ignition") {
+      return plant.hasArchitecture
+        ? { color: "bg-sky-500", status: "France - architecture importee" }
+        : { color: "bg-amber-500", status: "France - site seul" };
+    }
+
     // 1. Offline?
     if (plant.status === "offline")
       return { color: "bg-gray-500", status: t("statusOffline", language) };
@@ -317,10 +323,16 @@ export default function Map({ solarPlants }: MapProps) {
         const powerKw = Number.isFinite(Number(plant.powerOutput))
           ? Number(plant.powerOutput).toFixed(2)
           : "0.00";
+        const isFranceSite = plant.source === "france_ignition";
+        const sourceLabel = isFranceSite ? "France Ignition" : "Legacy Modbus";
+        const detailLine = isFranceSite
+          ? `${plant.posteCount || 0} postes - ${plant.celluleCount || 0} cellules - ${plant.onduleurCount || 0} onduleurs`
+          : `${t("powerOutput", language) || "Power Output"}: ${powerKw} kW`;
 
         const popupContent = `
                   <div class="p-1 font-sans">
                     <h4 class="font-bold text-base mb-2">${plant.name}</h4>
+                    <div class="text-xs text-muted-foreground mb-2">${sourceLabel}</div>
                     <div class="text-sm mb-2 flex items-center gap-2">
                       ${t("status", language)}:
                       <span class="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold text-white ${color}">
@@ -328,7 +340,7 @@ export default function Map({ solarPlants }: MapProps) {
                       </span>
                     </div>
                     <p class="text-sm text-muted-foreground mb-3">
-                      ${t("powerOutput", language) || "Power Output"}: ${powerKw} kW
+                      ${detailLine}
                     </p>
                     <a href="/plant/${plant.id}" class="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-9 px-3 w-full text-white no-underline">
                       ${t("viewSynoptic", language) || "View Synoptic"}

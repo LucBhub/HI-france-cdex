@@ -26,9 +26,9 @@ Fichier machine-readable associe: `docs/IGNITION_PARITY_MATRIX.json`.
 | Observabilite commandes | P0 | done | Historique runs, timeline MQTT, ACK rattaches aux runs, Command Center UI. | Ajouter filtres/export si besoin exploitation. |
 | Donnees France sandbox | P0 | done | Loader local ignore Git; test stack charge 108 sites, 220 postes, 651 cellules, 930 equipements, 1198 onduleurs. | Automatiser seulement avec export sanitise ou acces read-only. |
 | Modele architecture France | P1 | partial | Tables sites/postes/cellules/equipements/onduleurs, import metadata, import rows, site-only import. | Consolider mapping complet et contraintes metier. |
-| Dashboard architecture | P1 | partial | Page `/architecture` read-only avec resume, filtres et arbre site. | Ajouter vue detail site type synoptique read-only. |
-| Carte `Test_Maps` | P1 | partial | Le repo a une carte/dashboard centrales, mais pas encore la parite alarmes/navigation Ignition. | Brancher architecture France + statuts alarmes. |
-| Synoptique HTA/PTR | P1 | missing | Pas encore de vue synoptique France reconstruite depuis architecture. | Creer une vue lecture seule site/postes/cellules/equipements. |
+| Dashboard architecture | P1 | partial | Page `/architecture` read-only et fiche site France read-only via `/plant/-<id>`. | Ajouter telemetry sandbox et etats normalises. |
+| Carte `Test_Maps` | P1 | partial | La carte et la recherche affichent legacy Modbus + sites France importes, avec navigation separee par source. | Ajouter statuts alarmes France et filtres Ignition. |
+| Synoptique HTA/PTR | P1 | partial | `/plant/-<id>` affiche l'architecture site/postes/cellules/equipements/onduleurs sans commande. | Ajouter rendu synoptique graphique et telemetry. |
 | Vue onduleurs | P1 | missing | Les onduleurs France sont importes, mais pas de vue operateur equivalent Ignition. | Liste/detail onduleurs en lecture avec etats normalises. |
 | Telemetry et tags | P1 | missing | Pas de mapping generique tags Ignition/MQTT vers telemetry normalisee. | Definir `telemetry_points` et simulateur de valeurs. |
 | Conduite alarmes/tickets | P2 | missing | Pas de modele `AlarmMaster`/tickets equivalent Ignition. | Ajouter schema read-only et board conduite minimal. |
@@ -44,6 +44,8 @@ Fichier machine-readable associe: `docs/IGNITION_PARITY_MATRIX.json`.
 ### Lot 4 - Vue site France read-only
 
 Objectif: rendre les donnees importees utiles pour un operateur sans aucune commande.
+
+Statut repo: base implementee. La carte, la recherche et `/plant/[id]` acceptent maintenant les centrales legacy Modbus et les sites France Ignition en parallele. Les sites France restent read-only et n'utilisent pas le polling service.
 
 Livrables:
 - page detail site France basee sur `architecture_sites/:id/tree`;

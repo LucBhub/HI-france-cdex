@@ -6,7 +6,7 @@ import { Alarms } from "@/components/dashboard/alarms";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { SidebarInset } from "@/components/ui/sidebar";
 import { DashboardMap } from "@/components/dashboard/dashboard-map";
-import { fetchPlants } from "@/lib/api";
+import { fetchDashboardPlants } from "@/lib/api";
 import { type Plant } from "@/lib/data";
 import withAuth from "@/components/with-auth";
 
@@ -23,7 +23,7 @@ function HomePage() {
 
     const loadData = async () => {
       try {
-        const plantsData = await fetchPlants();
+        const plantsData = await fetchDashboardPlants();
 
         if (!isMounted) return;
 

@@ -32,6 +32,12 @@ app.prepare().then(() => {
     secure: false,
   });
 
+  proxy.on("proxyReq", (proxyReq) => {
+    // Browser Origin is not meaningful once /api is proxied server-to-server.
+    // Removing it keeps custom local frontend ports from tripping backend CORS.
+    proxyReq.removeHeader("origin");
+  });
+
   // Request handler
   const requestHandler = (req, res) => {
     const parsedUrl = parse(req.url, true);
@@ -81,8 +87,11 @@ app.prepare().then(() => {
     console.log("[Server] HTTP mode enabled");
   }
 
-  server.listen(3000, "0.0.0.0", (err) => {
+  const listenPort = Number(process.env.FRONTEND_PORT || process.env.PORT || 3000);
+  server.listen(listenPort, "0.0.0.0", (err) => {
     if (err) throw err;
-    console.log(`> Ready on ${useHttps ? "https" : "http"}://0.0.0.0:3000`);
+    console.log(
+      `> Ready on ${useHttps ? "https" : "http"}://0.0.0.0:${listenPort}`,
+    );
   });
 });

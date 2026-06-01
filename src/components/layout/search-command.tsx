@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Sun, Search } from "lucide-react";
+import { Network, Search, Sun } from "lucide-react";
 
 import {
   CommandDialog,
@@ -70,10 +70,23 @@ export function SearchCommand({ solarPlants }: { solarPlants: Plant[] }) {
                   handleSelect(plant.id);
                 }}
                 value={`${plant.name}-${plant.id}`} // Ensure unique value
-                keywords={[plant.name]} // Allow searching by name accurately
+                keywords={[
+                  plant.name,
+                  plant.siteCode || "",
+                  plant.source === "france_ignition" ? "france ignition" : "legacy modbus",
+                ]} // Allow searching by name accurately
               >
-                <Sun className="mr-2 h-4 w-4" />
-                <span>{plant.name}</span>
+                {plant.source === "france_ignition" ? (
+                  <Network className="mr-2 h-4 w-4" />
+                ) : (
+                  <Sun className="mr-2 h-4 w-4" />
+                )}
+                <span className="min-w-0 flex-1 truncate">{plant.name}</span>
+                {plant.source === "france_ignition" && (
+                  <span className="ml-2 rounded border px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">
+                    France
+                  </span>
+                )}
               </CommandItem>
             ))}
           </CommandGroup>
