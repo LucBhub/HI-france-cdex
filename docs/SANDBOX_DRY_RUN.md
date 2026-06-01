@@ -98,9 +98,14 @@ Commandes:
 
 Architecture:
 
+- `GET /api/architecture/summary`
 - `GET /api/architecture/sites`
 - `GET /api/architecture/sites/:id/tree`
 - `GET /api/architecture/imports`
+
+Interface read-only:
+
+- `/architecture`: vue de controle des sites importes, compteurs globaux, filtres et arbre site/postes/cellules/equipements/onduleurs. Elle n'ajoute aucune commande live et consomme uniquement les routes Architecture ci-dessus.
 
 Wrappers legacy relais:
 

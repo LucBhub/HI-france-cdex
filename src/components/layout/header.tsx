@@ -29,6 +29,8 @@ export function Header({ solarPlants }: { solarPlants: Plant[] }) {
         return t("settings", language);
       case "/reports":
         return t("reportsAnalysis", language);
+      case "/architecture":
+        return "Architecture";
       case "/admin":
         return t("adminPanel", language);
       case "/synoptic":

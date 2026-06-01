@@ -5,6 +5,79 @@ const authMiddleware = require("../middleware/auth");
 const router = express.Router();
 const allowedRoles = ["member", "admin", "superadmin"];
 
+function toNumber(value) {
+  return Number(value || 0);
+}
+
+async function countTable(tableName) {
+  const row = await knex(tableName).count({ count: "*" }).first();
+  return toNumber(row?.count);
+}
+
+router.get("/summary", authMiddleware(allowedRoles), async (req, res) => {
+  try {
+    const [
+      siteCount,
+      posteCount,
+      celluleCount,
+      equipementCount,
+      onduleurCount,
+      commandCount,
+      sitesWithArchitectureRow,
+      imports,
+      sitesByClient,
+    ] = await Promise.all([
+      countTable("architecture_sites"),
+      countTable("architecture_postes"),
+      countTable("architecture_cellules"),
+      countTable("architecture_equipements"),
+      countTable("architecture_onduleurs"),
+      countTable("command_catalog"),
+      knex("architecture_sites")
+        .leftJoin(
+          "architecture_postes",
+          "architecture_sites.id",
+          "architecture_postes.site_id",
+        )
+        .whereNotNull("architecture_postes.id")
+        .countDistinct({ count: "architecture_sites.id" })
+        .first(),
+      knex("architecture_imports").orderBy("created_at", "desc").limit(5),
+      knex("architecture_sites")
+        .select("client")
+        .count({ count: "*" })
+        .groupBy("client")
+        .orderBy("client", "asc"),
+    ]);
+
+    const sitesWithArchitecture = toNumber(sitesWithArchitectureRow?.count);
+    res.json({
+      success: true,
+      summary: {
+        sites: siteCount,
+        sitesWithArchitecture,
+        sitesWithoutArchitecture: Math.max(siteCount - sitesWithArchitecture, 0),
+        postes: posteCount,
+        cellules: celluleCount,
+        equipements: equipementCount,
+        onduleurs: onduleurCount,
+        commands: commandCount,
+        imports,
+        sitesByClient: sitesByClient.map((row) => ({
+          client: row.client || "unknown",
+          count: toNumber(row.count),
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("[Architecture] Failed to load summary:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to load architecture summary.",
+    });
+  }
+});
+
 router.get("/imports", authMiddleware(allowedRoles), async (req, res) => {
   try {
     const limit = Math.min(Number(req.query.limit) || 50, 200);
@@ -28,11 +101,32 @@ router.get("/sites", authMiddleware(allowedRoles), async (req, res) => {
       .select(
         "architecture_sites.*",
         knex.raw("COUNT(DISTINCT architecture_postes.id)::int AS poste_count"),
+        knex.raw("COUNT(DISTINCT architecture_cellules.id)::int AS cellule_count"),
+        knex.raw(
+          "COUNT(DISTINCT architecture_equipements.id)::int AS equipement_count",
+        ),
+        knex.raw("COUNT(DISTINCT architecture_onduleurs.id)::int AS onduleur_count"),
+        knex.raw("(COUNT(DISTINCT architecture_postes.id) > 0) AS has_architecture"),
       )
       .leftJoin(
         "architecture_postes",
         "architecture_sites.id",
         "architecture_postes.site_id",
+      )
+      .leftJoin(
+        "architecture_cellules",
+        "architecture_postes.id",
+        "architecture_cellules.poste_id",
+      )
+      .leftJoin(
+        "architecture_equipements",
+        "architecture_postes.id",
+        "architecture_equipements.poste_id",
+      )
+      .leftJoin(
+        "architecture_onduleurs",
+        "architecture_postes.id",
+        "architecture_onduleurs.poste_id",
       )
       .groupBy("architecture_sites.id")
       .orderBy("architecture_sites.name", "asc");

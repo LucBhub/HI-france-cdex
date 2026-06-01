@@ -1,6 +1,88 @@
 import { type Plant, type Alarm } from "./data";
 import { type User } from "@/contexts/auth-context";
 
+export interface ArchitectureImport {
+  id: number;
+  source: string;
+  status: string;
+  imported_sites: number;
+  notes?: string | null;
+  metadata?: Record<string, unknown> | string;
+  created_at?: string;
+}
+
+export interface ArchitectureSite {
+  id: number;
+  legacy_plant_id?: number | null;
+  site_code: string;
+  name: string;
+  status?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  address?: string | null;
+  ce?: string | null;
+  client?: string | null;
+  hyperviseur?: boolean | null;
+  raw_source?: Record<string, unknown> | string;
+  poste_count?: number;
+  cellule_count?: number;
+  equipement_count?: number;
+  onduleur_count?: number;
+  has_architecture?: boolean;
+}
+
+export interface ArchitecturePoste {
+  id: number;
+  site_id: number;
+  poste_code: string;
+  type_poste?: string | null;
+  sort_order?: number | null;
+  cellules?: ArchitectureCellule[];
+  equipements?: ArchitectureEquipement[];
+  onduleurs?: ArchitectureOnduleur[];
+}
+
+export interface ArchitectureCellule {
+  id: number;
+  poste_id: number;
+  cellule_code: string;
+  type_cellule?: string | null;
+  ordre_cellule?: number | null;
+}
+
+export interface ArchitectureEquipement {
+  id: number;
+  poste_id: number;
+  equipement_code: string;
+  type_equipement?: string | null;
+}
+
+export interface ArchitectureOnduleur {
+  id: number;
+  poste_id: number;
+  onduleur_code: string;
+  type_onduleur?: string | null;
+  numero_onduleur?: number | null;
+  ip_address?: string | null;
+}
+
+export interface ArchitectureTreeSite extends ArchitectureSite {
+  postes: ArchitecturePoste[];
+}
+
+export interface ArchitectureSummary {
+  sites: number;
+  sitesWithArchitecture: number;
+  sitesWithoutArchitecture: number;
+  postes: number;
+  cellules: number;
+  equipements: number;
+  onduleurs: number;
+  commands: number;
+  imports: ArchitectureImport[];
+  sitesByClient: Array<{ client: string; count: number }>;
+}
+
 class Fetcher {
   private token: string | null = null;
   private readonly baseUrl: string;
@@ -423,5 +505,60 @@ export async function refreshRelayFaults(
   } catch (error: any) {
     console.error("[API Error] refreshRelayFaults:", error);
     return { success: false, message: error.message };
+  }
+}
+
+// Architecture API
+export async function fetchArchitectureSummary(): Promise<ArchitectureSummary | null> {
+  try {
+    const result = await fetcher.get<{
+      success: boolean;
+      summary: ArchitectureSummary;
+    }>("/api/architecture/summary", { cache: "no-store" });
+    return result.summary;
+  } catch (error) {
+    console.error("[API Error] fetchArchitectureSummary:", error);
+    return null;
+  }
+}
+
+export async function fetchArchitectureSites(): Promise<ArchitectureSite[]> {
+  try {
+    const result = await fetcher.get<{
+      success: boolean;
+      sites: ArchitectureSite[];
+    }>("/api/architecture/sites", { cache: "no-store" });
+    return result.sites || [];
+  } catch (error) {
+    console.error("[API Error] fetchArchitectureSites:", error);
+    return [];
+  }
+}
+
+export async function fetchArchitectureSiteTree(
+  id: number | string,
+): Promise<ArchitectureTreeSite | null> {
+  try {
+    const result = await fetcher.get<{
+      success: boolean;
+      site: ArchitectureTreeSite;
+    }>(`/api/architecture/sites/${id}/tree`, { cache: "no-store" });
+    return result.site;
+  } catch (error) {
+    console.error("[API Error] fetchArchitectureSiteTree:", error);
+    return null;
+  }
+}
+
+export async function fetchArchitectureImports(): Promise<ArchitectureImport[]> {
+  try {
+    const result = await fetcher.get<{
+      success: boolean;
+      imports: ArchitectureImport[];
+    }>("/api/architecture/imports?limit=10", { cache: "no-store" });
+    return result.imports || [];
+  } catch (error) {
+    console.error("[API Error] fetchArchitectureImports:", error);
+    return [];
   }
 }

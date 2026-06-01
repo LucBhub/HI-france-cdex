@@ -20,6 +20,7 @@ import {
   UserCog,
   Wind,
   BarChart3,
+  Network,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
@@ -98,6 +99,21 @@ export function AppSidebar() {
               <Link href="/reports" className="flex items-center gap-2 w-full">
                 <BarChart3 />
                 <span>{t("reports", language)}</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === "/architecture"}
+              tooltip="Architecture"
+            >
+              <Link
+                href="/architecture"
+                className="flex items-center gap-2 w-full"
+              >
+                <Network />
+                <span>Architecture</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
