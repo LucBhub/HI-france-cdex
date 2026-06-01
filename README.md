@@ -24,6 +24,7 @@ This branch includes the first migration foundation for the France Ignition hype
 - A dry-run `command_service` exposed through `/api/commands`.
 - Command run observability with summaries and timelines on `/api/commands/runs/:id/status`.
 - A read-only Architecture page at `/architecture` to inspect imported sites and their postes/cellules/equipements/onduleurs.
+- A dry-run Command Center page at `/commands` to test catalog commands and inspect MQTT sandbox runs.
 - Legacy relay command wrappers that stay in dry-run while `COMMAND_LIVE_ENABLED=false`.
 - A local Mosquitto sandbox and MQTT simulator.
 

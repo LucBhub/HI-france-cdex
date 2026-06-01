@@ -106,6 +106,7 @@ Architecture:
 Interface read-only:
 
 - `/architecture`: vue de controle des sites importes, compteurs globaux, filtres et arbre site/postes/cellules/equipements/onduleurs. Elle n'ajoute aucune commande live et consomme uniquement les routes Architecture ci-dessus.
+- `/commands`: Command Center dry-run pour parcourir le catalogue, preparer une cible JSON, lancer `POST /api/commands` en simulation et suivre les runs MQTT/ACK.
 
 Wrappers legacy relais:
 

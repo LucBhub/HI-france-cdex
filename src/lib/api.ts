@@ -83,6 +83,102 @@ export interface ArchitectureSummary {
   sitesByClient: Array<{ client: string; count: number }>;
 }
 
+export interface CommandTemplate {
+  requiredTarget?: string[];
+  requiredParams?: string[];
+  topicTemplates?: string[];
+  tagTemplates?: string[];
+  payloadSequence?: string[];
+  payloadParam?: string;
+  defaultPayload?: string | number | boolean;
+  plannedPulseMs?: number;
+  [key: string]: unknown;
+}
+
+export interface CommandCatalogItem {
+  id: number;
+  command_key: string;
+  label: string;
+  family: string;
+  risk_level: string;
+  transport: string;
+  template: CommandTemplate | string;
+  live_enabled: boolean;
+  validation_status: string;
+  source: string;
+  metadata?: Record<string, unknown> | string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface PlannedCommandEvent {
+  sequence?: number;
+  transport: string;
+  topic?: string;
+  tagPath?: string;
+  payload?: string;
+  plannedPulseMs?: number;
+}
+
+export interface CommandEventSummary {
+  totalEvents?: number;
+  plannedPublishes?: number;
+  publishedPublishes?: number;
+  plannedTagWrites?: number;
+  simulatorReceipts?: number;
+  simulatorAcks?: number;
+  failedEvents?: number;
+  hasSimulatorReceipt?: boolean;
+  hasSimulatorAck?: boolean;
+  lastEventAt?: string | null;
+  sandboxStatus?: string;
+}
+
+export interface CommandTimelineEvent {
+  id: number;
+  at?: string | null;
+  commandRunId?: number | null;
+  direction?: string;
+  type?: string;
+  event_type?: string;
+  status?: string;
+  topic?: string;
+  payload?: string;
+  sequence?: number | null;
+  transport?: string | null;
+  plannedPulseMs?: number;
+  matchedOutboundEventId?: number | null;
+}
+
+export interface CommandRun {
+  id: number;
+  command_key: string;
+  mode: string;
+  status: string;
+  dry_run: boolean;
+  user_id?: number | null;
+  requested_by?: string | null;
+  target?: Record<string, unknown> | string;
+  params?: Record<string, unknown> | string;
+  planned_events?: PlannedCommandEvent[] | string;
+  error?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  events?: CommandTimelineEvent[];
+  eventSummary?: CommandEventSummary;
+  timeline?: CommandTimelineEvent[];
+}
+
+export interface CommandDryRunResult {
+  success: boolean;
+  dryRun?: boolean;
+  runId?: number;
+  status?: string;
+  plannedEvents?: PlannedCommandEvent[];
+  message?: string;
+  code?: string;
+}
+
 class Fetcher {
   private token: string | null = null;
   private readonly baseUrl: string;
@@ -204,9 +300,16 @@ class Fetcher {
       const errorData = await res
         .json()
         .catch(() => ({ message: "An unknown error occurred" }));
-      throw new Error(
+      const error = new Error(
         errorData.message || `Request failed with status ${res.status}`,
       );
+      (error as Error & { code?: string; status?: number; data?: unknown }).code =
+        errorData.code;
+      (error as Error & { code?: string; status?: number; data?: unknown }).status =
+        res.status;
+      (error as Error & { code?: string; status?: number; data?: unknown }).data =
+        errorData;
+      throw error;
     }
 
     if (res.status === 204) {
@@ -560,5 +663,69 @@ export async function fetchArchitectureImports(): Promise<ArchitectureImport[]> 
   } catch (error) {
     console.error("[API Error] fetchArchitectureImports:", error);
     return [];
+  }
+}
+
+// Command API
+export async function fetchCommandCatalog(): Promise<CommandCatalogItem[]> {
+  try {
+    const result = await fetcher.get<{
+      success: boolean;
+      catalog: CommandCatalogItem[];
+    }>("/api/commands/catalog", { cache: "no-store" });
+    return result.catalog || [];
+  } catch (error) {
+    console.error("[API Error] fetchCommandCatalog:", error);
+    return [];
+  }
+}
+
+export async function fetchCommandRuns(limit: number = 50): Promise<CommandRun[]> {
+  try {
+    const result = await fetcher.get<{
+      success: boolean;
+      runs: CommandRun[];
+    }>(`/api/commands/runs?limit=${limit}`, { cache: "no-store" });
+    return result.runs || [];
+  } catch (error) {
+    console.error("[API Error] fetchCommandRuns:", error);
+    return [];
+  }
+}
+
+export async function fetchCommandRun(
+  id: number | string,
+): Promise<CommandRun | null> {
+  try {
+    const result = await fetcher.get<{
+      success: boolean;
+      run: CommandRun;
+    }>(`/api/commands/runs/${id}`, { cache: "no-store" });
+    return result.run;
+  } catch (error) {
+    console.error("[API Error] fetchCommandRun:", error);
+    return null;
+  }
+}
+
+export async function executeCommandDryRun(command: {
+  commandKey: string;
+  target: Record<string, unknown>;
+  params: Record<string, unknown>;
+}): Promise<CommandDryRunResult> {
+  try {
+    return await fetcher.post<CommandDryRunResult>("/api/commands", {
+      commandKey: command.commandKey,
+      target: command.target,
+      params: command.params,
+      mode: "dry_run",
+    });
+  } catch (error: any) {
+    console.error("[API Error] executeCommandDryRun:", error);
+    return {
+      success: false,
+      code: error.code || "command_error",
+      message: error.message,
+    };
   }
 }

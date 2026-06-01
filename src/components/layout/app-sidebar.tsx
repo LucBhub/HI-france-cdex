@@ -21,6 +21,7 @@ import {
   Wind,
   BarChart3,
   Network,
+  TerminalSquare,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
@@ -114,6 +115,18 @@ export function AppSidebar() {
               >
                 <Network />
                 <span>Architecture</span>
+              </Link>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === "/commands"}
+              tooltip="Commandes"
+            >
+              <Link href="/commands" className="flex items-center gap-2 w-full">
+                <TerminalSquare />
+                <span>Commandes</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
