@@ -7,18 +7,19 @@ services:
         NEXT_PUBLIC_API_URL: https://${HOST_IP}:3001
         NEXT_PUBLIC_RELAY_API_URL: https://${HOST_IP}:3001/api/control
         NEXT_PUBLIC_OPENWEATHER_API_KEY: ${NEXT_PUBLIC_OPENWEATHER_API_KEY:-}
-    container_name: hyperviseur-frontend
+    container_name: ${HYPERVISEUR_CONTAINER_PREFIX:-hyperviseur}-frontend
     env_file:
-      - .env
+      - ${HYPERVISEUR_ENV_FILE:-.env.example}
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "${FRONTEND_HOST_PORT:-3000}:3000"
     environment:
       INTERNAL_API_URL: http://backend:3002
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://localhost:3001}
       NODE_ENV: production
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     volumes:
       - ./certs:/app/certs
 
@@ -26,16 +27,17 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: hyperviseur-backend
+    container_name: ${HYPERVISEUR_CONTAINER_PREFIX:-hyperviseur}-backend
     env_file:
-      - .env
+      - ${HYPERVISEUR_ENV_FILE:-.env.example}
     restart: unless-stopped
     ports:
-      - "3001:3001"
+      - "${BACKEND_HTTPS_PORT:-3001}:3001"
+      - "${BACKEND_INTERNAL_PORT:-3002}:3002"
     volumes:
       - ./backend/db:/app/db
       - ./backend/index.js:/app/index.js
-      - ./.env:/app/.env
+      - ${HYPERVISEUR_ENV_FILE:-.env.example}:/app/.env:ro
       - ./certs:/certs
     environment:
       PORT: 3001
@@ -60,21 +62,35 @@ services:
       COMMAND_DRY_RUN_PUBLISH: ${COMMAND_DRY_RUN_PUBLISH:-true}
     command: ["npm", "start"]
     depends_on:
-      - postgres
-      - mqtt-broker
+      postgres:
+        condition: service_healthy
+      mqtt-broker:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "node -e \"require('http').get('http://127.0.0.1:3002/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
 
   polling-service:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: hyperviseur-polling-service
+    container_name: ${HYPERVISEUR_CONTAINER_PREFIX:-hyperviseur}-polling-service
     env_file:
-      - .env
+      - ${HYPERVISEUR_ENV_FILE:-.env.example}
     restart: unless-stopped
     command: ["npm", "run", "poll"]
     depends_on:
-      - backend
-      - postgres
+      backend:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       INTERNAL_API_URL: http://backend:3002
       POLLING_SERVICE_TOKEN: ${POLLING_SERVICE_TOKEN:-}
@@ -83,32 +99,44 @@ services:
       # But current polling service calls API, so maybe not strictly needed, but good to have env consistency
       NODE_ENV: production
     volumes:
-      - ./.env:/app/.env
+      - ${HYPERVISEUR_ENV_FILE:-.env.example}:/app/.env:ro
       - ./backend/polling-service.js:/app/polling-service.js
       - ./backend/lib:/app/lib
       - ./certs:/certs
 
   mqtt-broker:
     image: eclipse-mosquitto:2
-    container_name: hyperviseur-mqtt-sandbox
+    container_name: ${HYPERVISEUR_CONTAINER_PREFIX:-hyperviseur}-mqtt-sandbox
     restart: unless-stopped
     ports:
-      - "1883:1883"
+      - "${MQTT_HOST_PORT:-1883}:1883"
     volumes:
       - ./mosquitto/sandbox.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "mosquitto_sub -h 127.0.0.1 -p 1883 -t '$$SYS/broker/version' -C 1 -W 3 >/dev/null 2>&1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
 
   mqtt-simulator:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: hyperviseur-mqtt-simulator
+    container_name: ${HYPERVISEUR_CONTAINER_PREFIX:-hyperviseur}-mqtt-simulator
     env_file:
-      - .env
+      - ${HYPERVISEUR_ENV_FILE:-.env.example}
     restart: unless-stopped
     command: ["npm", "run", "mqtt:simulator"]
     depends_on:
-      - mqtt-broker
-      - postgres
+      mqtt-broker:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
     environment:
       NODE_ENV: production
       DB_HOST: postgres
@@ -121,13 +149,13 @@ services:
       COMMAND_LIVE_ENABLED: ${COMMAND_LIVE_ENABLED:-false}
       COMMAND_DRY_RUN_PUBLISH: ${COMMAND_DRY_RUN_PUBLISH:-true}
     volumes:
-      - ./.env:/app/.env
+      - ${HYPERVISEUR_ENV_FILE:-.env.example}:/app/.env:ro
       - ./backend/mqtt-simulator.js:/app/mqtt-simulator.js
       - ./backend/db:/app/db
 
   postgres:
     image: postgres:15-alpine
-    container_name: hyperviseur-postgres
+    container_name: ${HYPERVISEUR_CONTAINER_PREFIX:-hyperviseur}-postgres
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
@@ -136,14 +164,25 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      - "${POSTGRES_HOST_PORT:-5433}:5432"
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-hyperviseur}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
 
   backup-service:
     image: postgres:15-alpine
-    container_name: hyperviseur-backup
+    container_name: ${HYPERVISEUR_CONTAINER_PREFIX:-hyperviseur}-backup
     restart: unless-stopped
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     environment:
       DB_HOST: postgres
       DB_PORT: 5432

@@ -2,6 +2,7 @@ const EventEmitter = require("events");
 const {
   buildPlannedEvents,
   executeCommand,
+  getRun,
 } = require("../../services/command-service");
 
 function matches(row, criteria) {
@@ -22,13 +23,18 @@ function makeDb(initial = {}) {
 
   function db(table) {
     const state = { criteria: null };
+    const selectedRows = () =>
+      data[table].filter((row) => matches(row, state.criteria));
     const chain = {
       where(criteria) {
         state.criteria = criteria;
         return chain;
       },
+      orderBy() {
+        return chain;
+      },
       async first() {
-        return data[table].find((row) => matches(row, state.criteria));
+        return selectedRows()[0];
       },
       insert(row) {
         const id = nextIds[table] || data[table].length + 1;
@@ -39,9 +45,12 @@ function makeDb(initial = {}) {
         return result;
       },
       async update(row) {
-        const rows = data[table].filter((item) => matches(item, state.criteria));
+        const rows = selectedRows();
         rows.forEach((item) => Object.assign(item, row));
         return rows.length;
+      },
+      then(resolve, reject) {
+        return Promise.resolve(selectedRows()).then(resolve, reject);
       },
     };
     return chain;
@@ -124,6 +133,25 @@ describe("command-service", () => {
     expect(db.data.command_runs).toHaveLength(0);
   });
 
+  test("still executes dry-run when COMMAND_LIVE_ENABLED is true", async () => {
+    process.env.COMMAND_LIVE_ENABLED = "true";
+    const db = makeDb({ command_catalog: [catalogRow] });
+
+    const result = await executeCommand(
+      {
+        commandKey: "legacy.relay.couple",
+        mode: "dry_run",
+        target: { plantId: 1, relayId: 2 },
+        user: { username: "u" },
+      },
+      { knex: db, logAudit: jest.fn() },
+    );
+
+    expect(result.dryRun).toBe(true);
+    expect(result.status).toBe("dry_run_planned");
+    expect(db.data.command_runs).toHaveLength(1);
+  });
+
   test("creates command run, sandbox event and audit log in dry-run", async () => {
     const db = makeDb({ command_catalog: [catalogRow] });
     const audit = jest.fn().mockResolvedValue(undefined);
@@ -173,5 +201,21 @@ describe("command-service", () => {
 
     expect(db.data.command_runs[0].status).toBe("sandbox_failed");
     expect(db.data.sandbox_mqtt_events[0].status).toBe("failed");
+  });
+
+  test("getRun returns the run with sandbox events", async () => {
+    const db = makeDb({
+      command_runs: [{ id: 1, command_key: "legacy.relay.couple" }],
+      sandbox_mqtt_events: [
+        { id: 2, command_run_id: 1, event_type: "planned_publish" },
+      ],
+    });
+
+    const run = await getRun(1, { knex: db });
+
+    expect(run).toMatchObject({
+      id: 1,
+      events: [{ id: 2, command_run_id: 1 }],
+    });
   });
 });

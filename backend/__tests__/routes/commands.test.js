@@ -37,12 +37,7 @@ describe("commands routes", () => {
     expect(res.body.code).toBe("missing_command_key");
   });
 
-  test("POST / maps live_disabled service errors to 403", async () => {
-    const error = new Error("Live disabled");
-    error.status = 403;
-    error.code = "live_disabled";
-    commandService.executeCommand.mockRejectedValue(error);
-
+  test("POST / rejects any non dry-run mode before service execution", async () => {
     const res = await request(app)
       .post("/")
       .set("Authorization", `Bearer ${token("admin")}`)
@@ -50,6 +45,25 @@ describe("commands routes", () => {
 
     expect(res.status).toBe(403);
     expect(res.body.code).toBe("live_disabled");
+    expect(commandService.executeCommand).not.toHaveBeenCalled();
+  });
+
+  test("POST / requires target and params to be objects", async () => {
+    const targetRes = await request(app)
+      .post("/")
+      .set("Authorization", `Bearer ${token()}`)
+      .send({ commandKey: "cell.open", target: [] });
+
+    expect(targetRes.status).toBe(400);
+    expect(targetRes.body.code).toBe("invalid_target");
+
+    const paramsRes = await request(app)
+      .post("/")
+      .set("Authorization", `Bearer ${token()}`)
+      .send({ commandKey: "cell.open", params: "bad" });
+
+    expect(paramsRes.status).toBe(400);
+    expect(paramsRes.body.code).toBe("invalid_params");
   });
 
   test("POST / returns dry-run execution result", async () => {
@@ -75,5 +89,21 @@ describe("commands routes", () => {
         mode: "dry_run",
       }),
     );
+  });
+
+  test("GET /runs/:id returns run with sandbox events", async () => {
+    commandService.getRun.mockResolvedValue({
+      id: 12,
+      command_key: "legacy.relay.couple",
+      events: [{ id: 20, event_type: "simulator_ack" }],
+    });
+
+    const res = await request(app)
+      .get("/runs/12")
+      .set("Authorization", `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.run.events).toHaveLength(1);
+    expect(commandService.getRun).toHaveBeenCalledWith("12");
   });
 });

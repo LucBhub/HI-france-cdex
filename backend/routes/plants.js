@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const knex = require("../db/knex");
 const authMiddleware = require("../middleware/auth");
+const { getCommandRuntimeConfig } = require("../config/runtime");
 const { logAudit } = require("../utils/audit-logger");
 const { executeCommand } = require("../services/command-service");
 
@@ -415,7 +416,7 @@ router.post(
       });
     }
 
-    if (process.env.COMMAND_LIVE_ENABLED !== "true") {
+    if (!getCommandRuntimeConfig().commandLiveEnabled) {
       try {
         const dryRun = await executeCommand({
           commandKey: `legacy.relay.${command}`,
@@ -634,7 +635,7 @@ router.post(
         .json({ success: false, message: "Invalid command." });
     }
 
-    if (process.env.COMMAND_LIVE_ENABLED !== "true") {
+    if (!getCommandRuntimeConfig().commandLiveEnabled) {
       try {
         const relays = await knex("relays").where({ plantId });
         if (!relays || relays.length === 0) {

@@ -40,6 +40,27 @@ git push -u cdex codex/socle-architecture-sandbox
 
 Ne pas pousser directement sur `main` tant que le socle dry-run n'a pas ete relu.
 
+## CI et securite du depot propre
+
+Le depot `HI-france-cdex` doit rester le depot propre de travail Codex. Ne pas pousser l'ancien historique brut du depot `Hyperviseur`, car il contient des secrets anciens et GitHub Push Protection peut bloquer le push.
+
+La branche `codex/**` declenche maintenant une CI minimale:
+
+- tests backend Jest;
+- typecheck et build frontend;
+- validation `docker compose --env-file .env.example config`;
+- scan simple des secrets dans l'etat courant du code.
+
+Avant une pull request, lancer localement:
+
+```bash
+cd backend && npm test -- --runInBand
+cd ..
+npm run typecheck
+npm run build
+docker compose --env-file .env.example config
+```
+
 ## Documentation du socle dry-run
 
 Le premier lot France ajoute un socle sans commande live:

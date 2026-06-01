@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - "codex/**"
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: hyperviseur_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d hyperviseur_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      NODE_ENV: test
+      JWT_SECRET: test-secret
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASS: postgres
+      DB_NAME: hyperviseur_test
+      COMMAND_MODE: dry_run
+      COMMAND_LIVE_ENABLED: "false"
+      COMMAND_DRY_RUN_PUBLISH: "false"
+      MQTT_URL: mqtt://localhost:1883
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm test -- --runInBand
+
+  frontend:
+    name: Frontend typecheck and build
+    runs-on: ubuntu-latest
+    env:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://localhost:3001
+      NEXT_PUBLIC_RELAY_API_URL: https://localhost:3001/api/control
+      NEXT_PUBLIC_OPENWEATHER_API_KEY: ""
+      INTERNAL_API_URL: http://localhost:3002
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+
+  compose:
+    name: Docker Compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose --env-file .env.example config
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Scan current tree for common secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          key_begin='BEGIN'
+          key_end='PRIVATE KEY'
+          azure_secret_name='AZURE_CLIENT_SECRET'
+          sendgrid_secret_name='SENDGRID_API_KEY'
+          patterns="(${key_begin} (RSA |OPENSSH |EC |DSA )?${key_end}|sk_live_[A-Za-z0-9]+|SG\.[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|${azure_secret_name}=.+|${sendgrid_secret_name}=.+)"
+          if git grep -n -I -E "$patterns" -- . \
+            ':(exclude)package-lock.json' \
+            ':(exclude)backend/package-lock.json' \
+            ':(exclude)docs/*.pdf' \
+            ':(exclude)docs/*.pptx' \
+            ':(exclude)docs/*.docx'; then
+            echo "Potential secret found in tracked files." >&2
+            exit 1
+          fi

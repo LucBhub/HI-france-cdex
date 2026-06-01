@@ -11,6 +11,7 @@ require("dotenv").config({ path: envPath });
 const express = require("express");
 const cors = require("cors");
 const initDb = require("./lib/db-init");
+const { getPublicRuntimeStatus } = require("./config/runtime");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -53,11 +54,20 @@ app.get("/health", async (req, res) => {
   try {
     const knex = require("./db/knex");
     await knex.raw("SELECT 1");
-    res.json({ status: "ok", db: "connected" });
+    res.json({
+      status: "ok",
+      db: "connected",
+      runtime: getPublicRuntimeStatus(),
+    });
   } catch (error) {
     res
       .status(503)
-      .json({ status: "degraded", db: "disconnected", error: error.message });
+      .json({
+        status: "degraded",
+        db: "disconnected",
+        runtime: getPublicRuntimeStatus(),
+        error: error.message,
+      });
   }
 });
 

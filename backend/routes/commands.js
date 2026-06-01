@@ -11,6 +11,14 @@ const router = express.Router();
 
 const allowedRoles = ["member", "admin", "superadmin"];
 
+function isPlainObject(value) {
+  return (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value)
+  );
+}
+
 function sendCommandError(res, error) {
   const status = error.status || 500;
   res.status(status).json({
@@ -20,6 +28,67 @@ function sendCommandError(res, error) {
     ...(error.runId ? { runId: error.runId } : {}),
     ...(error.plannedEvents ? { plannedEvents: error.plannedEvents } : {}),
   });
+}
+
+function validateCommandPayload(body) {
+  const payload = isPlainObject(body) ? body : {};
+  const commandKey =
+    typeof payload.commandKey === "string" ? payload.commandKey.trim() : "";
+
+  if (!commandKey) {
+    return {
+      status: 400,
+      error: {
+        success: false,
+        code: "missing_command_key",
+        message: "commandKey is required.",
+      },
+    };
+  }
+
+  if (payload.mode !== undefined && payload.mode !== "dry_run") {
+    return {
+      status: 403,
+      error: {
+        success: false,
+        code: "live_disabled",
+        message: "Live commands are disabled. Only dry_run is allowed.",
+      },
+    };
+  }
+
+  const target = payload.target === undefined ? {} : payload.target;
+  if (!isPlainObject(target)) {
+    return {
+      status: 400,
+      error: {
+        success: false,
+        code: "invalid_target",
+        message: "target must be an object.",
+      },
+    };
+  }
+
+  const params = payload.params === undefined ? {} : payload.params;
+  if (!isPlainObject(params)) {
+    return {
+      status: 400,
+      error: {
+        success: false,
+        code: "invalid_params",
+        message: "params must be an object.",
+      },
+    };
+  }
+
+  return {
+    value: {
+      commandKey,
+      target,
+      params,
+      mode: "dry_run",
+    },
+  };
 }
 
 router.get("/catalog", authMiddleware(allowedRoles), async (req, res) => {
@@ -58,15 +127,12 @@ router.get("/runs/:id", authMiddleware(allowedRoles), async (req, res) => {
 
 router.post("/", authMiddleware(allowedRoles), async (req, res) => {
   try {
-    const { commandKey, target = {}, params = {}, mode = "dry_run" } = req.body;
-    if (!commandKey) {
-      return res.status(400).json({
-        success: false,
-        code: "missing_command_key",
-        message: "commandKey is required.",
-      });
+    const validation = validateCommandPayload(req.body);
+    if (validation.error) {
+      return res.status(validation.status).json(validation.error);
     }
 
+    const { commandKey, target, params, mode } = validation.value;
     const result = await executeCommand({
       commandKey,
       target,

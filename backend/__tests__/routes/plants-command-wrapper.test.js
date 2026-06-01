@@ -56,6 +56,25 @@ describe("legacy plant command wrappers", () => {
     expect(ModbusRTU).not.toHaveBeenCalled();
   });
 
+  test("single relay command remains dry-run even if live env is true", async () => {
+    process.env.COMMAND_LIVE_ENABLED = "true";
+
+    const res = await request(app)
+      .post("/1/relays/2/control")
+      .set("Authorization", `Bearer ${token()}`)
+      .send({ command: "couple" });
+
+    expect(res.status).toBe(200);
+    expect(res.body.dryRun).toBe(true);
+    expect(executeCommand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        commandKey: "legacy.relay.couple",
+        mode: "dry_run",
+      }),
+    );
+    expect(ModbusRTU).not.toHaveBeenCalled();
+  });
+
   test("control-all dry-run returns compatible relay results", async () => {
     knex.mockReturnValue({
       where: jest.fn().mockResolvedValue([{ id: 2 }, { id: 3 }]),

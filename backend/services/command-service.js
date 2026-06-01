@@ -1,4 +1,5 @@
 const knex = require("../db/knex");
+const { getCommandRuntimeConfig } = require("../config/runtime");
 const { logAudit } = require("../utils/audit-logger");
 
 function parseMaybeJson(value, fallback) {
@@ -109,7 +110,10 @@ function buildPlannedEvents(catalogRow, target = {}, params = {}) {
 
 async function publishMqttEvents(events, deps = {}) {
   const mqtt = deps.mqtt || require("mqtt");
-  const mqttUrl = process.env.MQTT_URL || "mqtt://localhost:1883";
+  const runtime = deps.runtimeConfig || getCommandRuntimeConfig();
+  const mqttUrl = deps.mqttUrl || runtime.mqttUrl;
+  const connectTimeoutMs =
+    deps.mqttConnectTimeoutMs || runtime.mqttConnectTimeoutMs;
   const mqttEvents = events.filter((event) => event.transport === "mqtt");
 
   if (mqttEvents.length === 0) {
@@ -117,14 +121,14 @@ async function publishMqttEvents(events, deps = {}) {
   }
 
   const client = mqtt.connect(mqttUrl, {
-    connectTimeout: Number(process.env.MQTT_CONNECT_TIMEOUT_MS || 1500),
+    connectTimeout: connectTimeoutMs,
     reconnectPeriod: 0,
   });
 
   await new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       reject(new Error(`MQTT connection timed out: ${mqttUrl}`));
-    }, Number(process.env.MQTT_CONNECT_TIMEOUT_MS || 1500) + 250);
+    }, connectTimeoutMs + 250);
 
     client.once("connect", () => {
       clearTimeout(timeout);
@@ -146,7 +150,27 @@ async function publishMqttEvents(events, deps = {}) {
       });
     }
   } finally {
-    client.end(true);
+    await new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (!done) {
+          done = true;
+          resolve();
+        }
+      };
+      const timeout = setTimeout(finish, 1000);
+      if (timeout.unref) timeout.unref();
+
+      try {
+        client.end(false, {}, () => {
+          clearTimeout(timeout);
+          finish();
+        });
+      } catch (_error) {
+        clearTimeout(timeout);
+        finish();
+      }
+    });
   }
 
   return { published: mqttEvents.length };
@@ -162,7 +186,8 @@ async function executeCommand(
 ) {
   const db = deps.knex || knex;
   const audit = deps.logAudit || logAudit;
-  const commandMode = mode || process.env.COMMAND_MODE || "dry_run";
+  const runtime = deps.runtimeConfig || getCommandRuntimeConfig();
+  const commandMode = mode || runtime.commandMode;
 
   if (commandMode !== "dry_run") {
     throw commandError(
@@ -214,7 +239,7 @@ async function executeCommand(
     });
   }
 
-  const shouldPublish = process.env.COMMAND_DRY_RUN_PUBLISH !== "false";
+  const shouldPublish = runtime.commandDryRunPublish;
   let status = "dry_run_planned";
   let published = 0;
 
@@ -300,8 +325,17 @@ async function listRuns({ limit = 50 } = {}) {
     .limit(Math.min(Number(limit) || 50, 200));
 }
 
-async function getRun(id) {
-  return knex("command_runs").where({ id }).first();
+async function getRun(id, deps = {}) {
+  const db = deps.knex || knex;
+  const run = await db("command_runs").where({ id }).first();
+  if (!run) return null;
+
+  const events = await db("sandbox_mqtt_events")
+    .where({ command_run_id: run.id })
+    .orderBy("created_at", "asc")
+    .orderBy("id", "asc");
+
+  return { ...run, events };
 }
 
 module.exports = {

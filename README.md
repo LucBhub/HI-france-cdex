@@ -42,10 +42,18 @@ MQTT_URL=mqtt://mqtt-broker:1883
 To start only the sandbox foundation:
 
 ```bash
-docker compose up -d postgres mqtt-broker backend mqtt-simulator
+docker compose --env-file .env.example up -d postgres mqtt-broker backend mqtt-simulator
 ```
 
-The `docker-compose.yml` expects a root `.env` file. For local sandbox values, see `docs/SANDBOX_DRY_RUN.md`.
+For local overrides, copy `.env.example` to `.env` and run Compose with:
+
+```bash
+docker compose --env-file .env up -d postgres mqtt-broker backend mqtt-simulator
+```
+
+The command runtime has a code-level dry-run kill switch in this lot: command APIs and legacy relay wrappers do not execute live Modbus commands even if `COMMAND_LIVE_ENABLED=true` is set by mistake. `/health` exposes the public command runtime status so this can be checked quickly.
+
+CI validates backend tests, frontend typecheck/build, Compose configuration and a current-tree secret scan on `main` and `codex/**` branches.
 
 ## Environnements
 
