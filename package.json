@@ -7,7 +7,9 @@
     "build": "cross-env NODE_ENV=production next build",
     "start": "node server.js",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "architecture:france:preview": "npm --prefix backend run architecture:france:preview",
+    "architecture:france:load": "npm --prefix backend run architecture:france:load"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.3",

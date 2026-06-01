@@ -106,6 +106,35 @@ Pour importer les sites puis l'architecture dans le meme passage:
 npm run architecture:import -- --apply --sites-file C:\path\to\sites.json C:\path\to\create-tag-rows.json
 ```
 
+## Wrapper sandbox France
+
+Les exports locaux recuperes depuis `BDD_Ignition` restent ignores par Git dans:
+
+```text
+backups/ignition-exports
+```
+
+Pour la stack locale isolee `hi-france-test` (`Postgres` expose sur `localhost:5435`), un wrapper detecte automatiquement les derniers fichiers:
+
+```text
+sites-hyperviseur-oui-*.json
+create-tag-hyperviseur-oui-*.json
+```
+
+Preview sans ecriture:
+
+```powershell
+npm run architecture:france:preview
+```
+
+Import + verification des compteurs:
+
+```powershell
+npm run architecture:france:load
+```
+
+Ce wrapper prefere les fichiers `.json` aux `.csv/.tsv`, car les exports JSON conservent les types et les colonnes attendues par l'importeur.
+
 Formats acceptes:
 
 ```json

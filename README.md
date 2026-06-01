@@ -70,6 +70,13 @@ npm run architecture:import -- path/to/create-tag-rows.json
 npm run architecture:import -- --apply path/to/create-tag-rows.json
 ```
 
+When the ignored France extracts exist under `backups/ignition-exports`, the local test stack can be reloaded and verified with:
+
+```bash
+npm run architecture:france:preview
+npm run architecture:france:load
+```
+
 ## Environnements
 
 Le projet est structuré autour de trois environnements distincts :

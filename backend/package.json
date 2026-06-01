@@ -8,6 +8,8 @@
     "poll": "node polling-service.js",
     "mqtt:simulator": "node mqtt-simulator.js",
     "architecture:import": "node scripts/import-ignition-architecture.js",
+    "architecture:france:preview": "node scripts/load-france-sandbox-data.js --test-stack --preview",
+    "architecture:france:load": "node scripts/load-france-sandbox-data.js --test-stack --apply",
     "test": "jest --testEnvironment node --passWithNoTests",
     "test:watch": "jest --watch --testEnvironment node"
   },

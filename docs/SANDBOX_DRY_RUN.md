@@ -48,6 +48,24 @@ docker compose --env-file .env up -d postgres mqtt-broker backend mqtt-simulator
 
 Si une autre stack locale utilise deja les noms ou ports `hyperviseur-*`, changer `HYPERVISEUR_CONTAINER_PREFIX`, `BACKEND_HTTPS_PORT`, `BACKEND_INTERNAL_PORT`, `POSTGRES_HOST_PORT` et `MQTT_HOST_PORT`.
 
+Exemple de stack de test isolee, utilisee pour ne pas toucher a une stack existante sur `3000/3001/3002/5433/1883`:
+
+```powershell
+$env:HYPERVISEUR_CONTAINER_PREFIX="hi-france-test"
+$env:FRONTEND_HOST_PORT="3011"
+$env:BACKEND_HTTPS_PORT="3012"
+$env:BACKEND_INTERNAL_PORT="3013"
+$env:POSTGRES_HOST_PORT="5435"
+$env:MQTT_HOST_PORT="1884"
+docker compose -p hi-france-test --env-file .env.example up -d --build postgres mqtt-broker backend frontend mqtt-simulator
+```
+
+Acces:
+
+- Frontend: `https://localhost:3011`
+- Backend health: `http://localhost:3013/health`
+- MQTT sandbox: `localhost:1884`
+
 ## Demarrage local
 
 Pour demarrer uniquement le socle sandbox:
@@ -235,6 +253,22 @@ Pour inclure aussi les sites sans ligne `Create_Tag`:
 ```powershell
 npm run architecture:import -- --apply --sites-file C:\path\to\sites.json C:\path\to\create-tag-rows.json
 ```
+
+Pour recharger le jeu France sandbox depuis les exports locaux ignores dans `backups/ignition-exports`, le wrapper suivant detecte les derniers fichiers `sites-hyperviseur-oui-*.json` et `create-tag-hyperviseur-oui-*.json`, cible la stack `hi-france-test` sur `localhost:5435`, puis verifie les compteurs:
+
+```powershell
+npm run architecture:france:preview
+npm run architecture:france:load
+```
+
+Resultat attendu avec l'extract du 1 juin 2026:
+
+- 108 sites
+- 106 sites avec architecture
+- 220 postes
+- 651 cellules
+- 930 equipements
+- 1198 onduleurs
 
 ## Catalogue de commandes
 
