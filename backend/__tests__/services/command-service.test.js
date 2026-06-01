@@ -1,11 +1,15 @@
 const EventEmitter = require("events");
 const {
   buildPlannedEvents,
+  decorateRun,
   executeCommand,
   getRun,
+  listRuns,
+  summarizeRunEvents,
 } = require("../../services/command-service");
 
 function matches(row, criteria) {
+  if (typeof criteria === "function") return criteria(row);
   return Object.entries(criteria || {}).every(([key, value]) => row[key] === value);
 }
 
@@ -30,7 +34,14 @@ function makeDb(initial = {}) {
         state.criteria = criteria;
         return chain;
       },
+      whereIn(key, values) {
+        state.criteria = (row) => values.includes(row[key]);
+        return chain;
+      },
       orderBy() {
+        return chain;
+      },
+      limit() {
         return chain;
       },
       async first() {
@@ -95,6 +106,71 @@ describe("command-service", () => {
         payload: "true",
         plannedPulseMs: 0,
       },
+    ]);
+  });
+
+  test("summarizes simulator event progression", () => {
+    const summary = summarizeRunEvents([
+      {
+        event_type: "planned_publish",
+        status: "published",
+        created_at: "2026-06-01T10:00:00.000Z",
+      },
+      {
+        event_type: "simulator_received",
+        status: "received",
+        created_at: "2026-06-01T10:00:01.000Z",
+      },
+      {
+        event_type: "simulator_ack",
+        status: "published",
+        created_at: "2026-06-01T10:00:02.000Z",
+      },
+    ]);
+
+    expect(summary).toMatchObject({
+      totalEvents: 3,
+      plannedPublishes: 1,
+      publishedPublishes: 1,
+      simulatorReceipts: 1,
+      simulatorAcks: 1,
+      hasSimulatorAck: true,
+      sandboxStatus: "acknowledged",
+      lastEventAt: "2026-06-01T10:00:02.000Z",
+    });
+  });
+
+  test("decorates runs with parsed JSON fields, event summary and timeline", () => {
+    const run = decorateRun(
+      {
+        id: 1,
+        target: "{\"plantId\":1}",
+        params: "{}",
+        planned_events: "[]",
+      },
+      [
+        {
+          id: 2,
+          command_run_id: 1,
+          direction: "outbound",
+          event_type: "simulator_ack",
+          topic: "sandbox/acks",
+          payload: "{}",
+          status: "published",
+          metadata: "{\"matchedOutboundEventId\":1}",
+          created_at: "2026-06-01T10:00:00.000Z",
+        },
+      ],
+    );
+
+    expect(run.target).toEqual({ plantId: 1 });
+    expect(run.eventSummary.sandboxStatus).toBe("acknowledged");
+    expect(run.timeline).toEqual([
+      expect.objectContaining({
+        id: 2,
+        type: "simulator_ack",
+        matchedOutboundEventId: 1,
+      }),
     ]);
   });
 
@@ -216,6 +292,36 @@ describe("command-service", () => {
     expect(run).toMatchObject({
       id: 1,
       events: [{ id: 2, command_run_id: 1 }],
+      eventSummary: { totalEvents: 1 },
     });
+  });
+
+  test("listRuns decorates each run with its own event summary", async () => {
+    const db = makeDb({
+      command_runs: [
+        { id: 1, command_key: "legacy.relay.couple" },
+        { id: 2, command_key: "legacy.relay.decouple" },
+      ],
+      sandbox_mqtt_events: [
+        {
+          id: 3,
+          command_run_id: 1,
+          event_type: "simulator_ack",
+          status: "published",
+        },
+        {
+          id: 4,
+          command_run_id: 2,
+          event_type: "planned_publish",
+          status: "published",
+        },
+      ],
+    });
+
+    const runs = await listRuns({ limit: 50 }, { knex: db });
+
+    expect(runs).toHaveLength(2);
+    expect(runs[0].eventSummary.sandboxStatus).toBe("acknowledged");
+    expect(runs[1].eventSummary.sandboxStatus).toBe("published");
   });
 });

@@ -109,6 +109,31 @@ router.get("/runs", authMiddleware(allowedRoles), async (req, res) => {
   }
 });
 
+router.get("/runs/:id/status", authMiddleware(allowedRoles), async (req, res) => {
+  try {
+    const run = await getRun(req.params.id);
+    if (!run) {
+      return res.status(404).json({
+        success: false,
+        code: "run_not_found",
+        message: "Command run not found.",
+      });
+    }
+
+    res.json({
+      success: true,
+      runId: run.id,
+      commandKey: run.command_key,
+      status: run.status,
+      dryRun: run.dry_run,
+      eventSummary: run.eventSummary,
+      timeline: run.timeline,
+    });
+  } catch (error) {
+    sendCommandError(res, error);
+  }
+});
+
 router.get("/runs/:id", authMiddleware(allowedRoles), async (req, res) => {
   try {
     const run = await getRun(req.params.id);

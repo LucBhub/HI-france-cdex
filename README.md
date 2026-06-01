@@ -21,6 +21,7 @@ This branch includes the first migration foundation for the France Ignition hype
 - Architecture tables for sites, postes, cellules, equipements and onduleurs.
 - A versioned Ignition command catalog in `backend/data/ignition-command-catalog.json`.
 - A dry-run `command_service` exposed through `/api/commands`.
+- Command run observability with summaries and timelines on `/api/commands/runs/:id/status`.
 - Legacy relay command wrappers that stay in dry-run while `COMMAND_LIVE_ENABLED=false`.
 - A local Mosquitto sandbox and MQTT simulator.
 

@@ -180,6 +180,112 @@ function dbJson(value) {
   return JSON.stringify(value === undefined ? null : value);
 }
 
+function eventTimestamp(event) {
+  if (!event?.created_at) return null;
+  const value = new Date(event.created_at).getTime();
+  return Number.isFinite(value) ? value : null;
+}
+
+function summarizeRunEvents(events = []) {
+  const summary = {
+    totalEvents: events.length,
+    plannedPublishes: 0,
+    publishedPublishes: 0,
+    plannedTagWrites: 0,
+    simulatorReceipts: 0,
+    simulatorAcks: 0,
+    failedEvents: 0,
+    hasSimulatorReceipt: false,
+    hasSimulatorAck: false,
+    lastEventAt: null,
+    sandboxStatus: "planned",
+  };
+
+  for (const event of events) {
+    if (event.event_type === "planned_publish") {
+      summary.plannedPublishes += 1;
+      if (event.status === "published") summary.publishedPublishes += 1;
+    }
+    if (event.event_type === "planned_tag_write") {
+      summary.plannedTagWrites += 1;
+    }
+    if (event.event_type === "simulator_received") {
+      summary.simulatorReceipts += 1;
+      summary.hasSimulatorReceipt = true;
+    }
+    if (event.event_type === "simulator_ack") {
+      summary.simulatorAcks += 1;
+      if (event.status === "published") summary.hasSimulatorAck = true;
+    }
+    if (event.status === "failed") {
+      summary.failedEvents += 1;
+    }
+
+    const timestamp = eventTimestamp(event);
+    if (
+      timestamp &&
+      (!summary.lastEventAt ||
+        timestamp > new Date(summary.lastEventAt).getTime())
+    ) {
+      summary.lastEventAt = new Date(timestamp).toISOString();
+    }
+  }
+
+  if (summary.failedEvents > 0) {
+    summary.sandboxStatus = "failed";
+  } else if (summary.hasSimulatorAck) {
+    summary.sandboxStatus = "acknowledged";
+  } else if (summary.hasSimulatorReceipt) {
+    summary.sandboxStatus = "received";
+  } else if (
+    summary.plannedPublishes > 0 &&
+    summary.publishedPublishes === summary.plannedPublishes
+  ) {
+    summary.sandboxStatus = "published";
+  } else if (summary.totalEvents > 0) {
+    summary.sandboxStatus = "planned";
+  }
+
+  return summary;
+}
+
+function normalizeTimelineEvent(event) {
+  const metadata = parseMaybeJson(event.metadata, {});
+  return {
+    id: event.id,
+    at: event.created_at || null,
+    commandRunId: event.command_run_id || null,
+    direction: event.direction,
+    type: event.event_type,
+    status: event.status,
+    topic: event.topic,
+    payload: event.payload,
+    sequence: metadata.sequence || null,
+    transport: metadata.transport || null,
+    plannedPulseMs: metadata.plannedPulseMs || 0,
+    matchedOutboundEventId: metadata.matchedOutboundEventId || null,
+  };
+}
+
+function decorateRun(run, events = []) {
+  if (!run) return null;
+  const sortedEvents = [...events].sort((a, b) => {
+    const timeDiff = (eventTimestamp(a) || 0) - (eventTimestamp(b) || 0);
+    if (timeDiff !== 0) return timeDiff;
+    return (a.id || 0) - (b.id || 0);
+  });
+
+  return {
+    ...run,
+    target: parseMaybeJson(run.target, run.target),
+    params: parseMaybeJson(run.params, run.params),
+    planned_events: parseMaybeJson(run.planned_events, run.planned_events),
+    events: sortedEvents,
+    eventSummary: summarizeRunEvents(sortedEvents),
+    timeline: sortedEvents.map(normalizeTimelineEvent),
+  };
+}
+
 async function executeCommand(
   { commandKey, target = {}, params = {}, mode = "dry_run", user, ipAddress },
   deps = {},
@@ -319,10 +425,25 @@ async function listCatalog() {
     .orderBy("command_key", "asc");
 }
 
-async function listRuns({ limit = 50 } = {}) {
-  return knex("command_runs")
+async function listRuns({ limit = 50 } = {}, deps = {}) {
+  const db = deps.knex || knex;
+  const runs = await db("command_runs")
     .orderBy("created_at", "desc")
     .limit(Math.min(Number(limit) || 50, 200));
+  if (runs.length === 0) return [];
+
+  const runIds = runs.map((run) => run.id);
+  const events = await db("sandbox_mqtt_events")
+    .whereIn("command_run_id", runIds)
+    .orderBy("created_at", "asc")
+    .orderBy("id", "asc");
+
+  return runs.map((run) =>
+    decorateRun(
+      run,
+      events.filter((event) => event.command_run_id === run.id),
+    ),
+  );
 }
 
 async function getRun(id, deps = {}) {
@@ -335,12 +456,13 @@ async function getRun(id, deps = {}) {
     .orderBy("created_at", "asc")
     .orderBy("id", "asc");
 
-  return { ...run, events };
+  return decorateRun(run, events);
 }
 
 module.exports = {
   buildPlannedEvents,
   commandError,
+  decorateRun,
   executeCommand,
   getRun,
   interpolate,
@@ -348,4 +470,5 @@ module.exports = {
   listRuns,
   parseMaybeJson,
   publishMqttEvents,
+  summarizeRunEvents,
 };

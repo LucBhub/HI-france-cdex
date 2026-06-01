@@ -106,4 +106,39 @@ describe("commands routes", () => {
     expect(res.body.run.events).toHaveLength(1);
     expect(commandService.getRun).toHaveBeenCalledWith("12");
   });
+
+  test("GET /runs/:id/status returns observability summary and timeline", async () => {
+    commandService.getRun.mockResolvedValue({
+      id: 12,
+      command_key: "legacy.relay.couple",
+      status: "dry_run_published",
+      dry_run: true,
+      eventSummary: { sandboxStatus: "acknowledged", hasSimulatorAck: true },
+      timeline: [{ id: 20, type: "simulator_ack" }],
+    });
+
+    const res = await request(app)
+      .get("/runs/12/status")
+      .set("Authorization", `Bearer ${token()}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      success: true,
+      runId: 12,
+      commandKey: "legacy.relay.couple",
+      eventSummary: { sandboxStatus: "acknowledged" },
+      timeline: [{ id: 20, type: "simulator_ack" }],
+    });
+  });
+
+  test("GET /runs/:id/status returns 404 for missing run", async () => {
+    commandService.getRun.mockResolvedValue(null);
+
+    const res = await request(app)
+      .get("/runs/99/status")
+      .set("Authorization", `Bearer ${token()}`);
+
+    expect(res.status).toBe(404);
+    expect(res.body.code).toBe("run_not_found");
+  });
 });

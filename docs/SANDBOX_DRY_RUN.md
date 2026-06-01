@@ -93,6 +93,7 @@ Commandes:
 - `GET /api/commands/catalog`
 - `GET /api/commands/runs`
 - `GET /api/commands/runs/:id`
+- `GET /api/commands/runs/:id/status`
 - `POST /api/commands`
 
 Architecture:
@@ -146,6 +147,41 @@ Reponse attendue:
 ```
 
 Le simulateur conserve le payload reel recu, cherche un evenement outbound recent avec le meme `topic` et `payload`, puis rattache l'ACK au `command_run_id` quand la correspondance est trouvee. L'API ne bloque pas en attente de cet ACK: elle repond des que la publication dry-run est planifiee/publiee.
+
+## Suivi d'une commande
+
+`GET /api/commands/runs` et `GET /api/commands/runs/:id` retournent maintenant un resume d'evenements:
+
+```json
+{
+  "eventSummary": {
+    "sandboxStatus": "acknowledged",
+    "plannedPublishes": 1,
+    "publishedPublishes": 1,
+    "simulatorReceipts": 1,
+    "simulatorAcks": 1,
+    "failedEvents": 0,
+    "hasSimulatorAck": true
+  }
+}
+```
+
+Valeurs possibles de `sandboxStatus`:
+
+- `planned`: evenements prevus mais pas tous publies.
+- `published`: les publications MQTT prevues sont marquees publiees.
+- `received`: le simulateur a recu au moins un message.
+- `acknowledged`: le simulateur a publie un ACK.
+- `failed`: au moins un evenement sandbox est en echec.
+
+Pour une vue compacte orientee exploitation:
+
+```powershell
+curl.exe -k https://localhost:3001/api/commands/runs/<RUN_ID>/status `
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+La reponse contient `eventSummary` et une `timeline` normalisee des evenements, sans attendre ni executer d'action live.
 
 ## Tables creees
 
@@ -223,6 +259,7 @@ Couverture ajoutee:
 - erreur broker indisponible.
 - wrappers relais sans Modbus.
 - correlation ACK simulateur.
+- resume et timeline des runs de commandes.
 
 Checks locaux recommandes avant push:
 
