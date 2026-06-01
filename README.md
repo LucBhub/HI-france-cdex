@@ -53,7 +53,7 @@ docker compose --env-file .env up -d postgres mqtt-broker backend mqtt-simulator
 
 The command runtime has a code-level dry-run kill switch in this lot: command APIs and legacy relay wrappers do not execute live Modbus commands even if `COMMAND_LIVE_ENABLED=true` is set by mistake. `/health` exposes the public command runtime status so this can be checked quickly.
 
-CI validates backend tests, frontend typecheck/build, Compose configuration and a current-tree secret scan on `main` and `codex/**` branches.
+CI validates npm audit, backend tests, frontend typecheck/build, Compose configuration and a current-tree secret scan on `main` and `codex/**` branches.
 
 ## Environnements
 

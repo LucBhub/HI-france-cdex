@@ -11,6 +11,7 @@ console.log("[NextConfig] Using INTERNAL_API_URL (evaluated):", internalApiUrl);
 
 const nextConfig: NextConfig = {
   /* config options here */
+  outputFileTracingRoot: process.cwd(),
   onDemandEntries: {
     // period (in ms) where the server will keep pages in the buffer
     maxInactiveAge: 25 * 1000,

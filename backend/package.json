@@ -23,7 +23,7 @@
     "knex": "^3.1.0",
     "modbus-serial": "^8.0.17",
     "mqtt": "^5.10.4",
-    "nodemailer": "^7.0.12",
+    "nodemailer": "^8.0.10",
     "path-to-regexp": "^0.1.12",
     "pg": "^8.17.2",
     "qs": "^6.12.1",
